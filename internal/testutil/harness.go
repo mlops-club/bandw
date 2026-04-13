@@ -1,11 +1,16 @@
 package testutil
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/mlops-club/bandw/internal/server"
 	"github.com/mlops-club/bandw/internal/store"
+	"github.com/tidwall/gjson"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +45,7 @@ func NewHarness(t *testing.T) *Harness {
 	return &Harness{
 		BaseURL: srv.URL,
 		DB:      db,
-		APIKey:  "test-api-key-000",
+		APIKey:  "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5",
 		srv:     srv,
 	}
 }
@@ -48,4 +53,29 @@ func NewHarness(t *testing.T) *Harness {
 // Close shuts down the test server.
 func (h *Harness) Close() {
 	h.srv.Close()
+}
+
+// GQLResponse wraps a GraphQL JSON response for path-based access.
+type GQLResponse struct {
+	Body []byte
+}
+
+// Path returns the gjson result at the given dot-separated path.
+func (r *GQLResponse) Path(path string) gjson.Result {
+	return gjson.GetBytes(r.Body, path)
+}
+
+// GraphQL sends an authenticated GraphQL POST and returns the parsed response.
+func (h *Harness) GraphQL(query string) *GQLResponse {
+	payload, _ := json.Marshal(map[string]string{"query": query})
+	req, _ := http.NewRequest("POST", h.BaseURL+"/graphql", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth("api", h.APIKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic("GraphQL request failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return &GQLResponse{Body: body}
 }
