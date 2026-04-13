@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/mlops-club/bandw/internal/filestream"
 	graphqlhandler "github.com/mlops-club/bandw/internal/graphql"
 	"gorm.io/gorm"
 )
@@ -26,6 +27,7 @@ func NewRouter(db *gorm.DB) chi.Router {
 		r.Use(AuthMiddleware(db))
 
 		r.Post("/graphql", graphqlhandler.NewHandler(db).ServeHTTP)
+		r.Post("/files/{entity}/{project}/{run}/file_stream", filestream.NewHandler(db))
 	})
 
 	return r
