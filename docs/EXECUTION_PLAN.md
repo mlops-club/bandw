@@ -9,6 +9,56 @@ Cross-sectional development: each slice adds one capability end-to-end
 
 ---
 
+## Progress Tracker
+
+> **Overall: 1 / 30 slices complete**
+
+### Phase 1: Tier 0 — SDK Init/Log/Finish (1/7)
+- [x] Slice 1: Project Scaffold + Docker Compose + Test Harness
+- [ ] Slice 2: Database Models + GORM Setup
+- [ ] Slice 3: Auth Middleware
+- [ ] Slice 4: GraphQL — Viewer + ServerInfo + ServerFeatures
+- [ ] Slice 5: GraphQL — UpsertBucket (Run Creation)
+- [ ] Slice 6: File Stream Handler — Metrics Ingestion
+- [ ] Slice 7: UpsertBucket — Summary Update on Finish
+
+### Phase 2: Frontend MVP (0/8)
+- [ ] Slice 8: Frontend Scaffold (Svelte 5)
+- [ ] Slice 9: Runs Table (Read-Only)
+- [ ] Slice 10: Run Detail — Overview Tab
+- [ ] Slice 11: Run Detail — Charts Tab
+- [ ] Slice 12: Run Detail — Logs Tab
+- [ ] Slice 13: Workspace — Runs Sidebar + Multi-Run Charts
+- [ ] Slice 14: Workspace — System Metrics Section
+- [ ] Slice 15: Run Filtering, Sorting, Grouping
+
+### Phase 3: File Upload + Run Lifecycle (0/3)
+- [ ] Slice 16: MinIO + File Upload
+- [ ] Slice 17: Run Resume
+- [ ] Slice 18: Run Stop from UI
+
+### Phase 4: Artifacts (0/5)
+- [ ] Slice 19: Artifact Schema + Tables
+- [ ] Slice 20: CreateArtifact + CreateArtifactManifest + CommitArtifact
+- [ ] Slice 21: Artifact Queries + Download
+- [ ] Slice 22: Artifacts UI
+- [ ] Slice 23: Artifact Aliases + Tags + Updates
+
+### Phase 5: Reports (0/3)
+- [ ] Slice 24: Reports List + Editor Shell
+- [ ] Slice 25: Panel Grid Block in Reports
+- [ ] Slice 26: Report Viewer + Comments
+
+### Phase 6: Alerts + Registry (0/2)
+- [ ] Slice 27: Alerts
+- [ ] Slice 28: Registry (Model Registry)
+
+### Phase 7: Auth + Teams (0/2)
+- [ ] Slice 29: OIDC / SSO
+- [ ] Slice 30: Teams + Org Management
+
+---
+
 ## Test Strategy
 
 Every slice includes Go integration tests that run against real MySQL. Two tiers:
