@@ -32,3 +32,37 @@ func (r *Resolver) Viewer(ctx context.Context) (*UserResolver, error) {
 func (r *Resolver) ServerInfo() *ServerInfoResolver {
 	return &ServerInfoResolver{}
 }
+
+// Model resolves Query.model — returns a project by name (legacy SDK alias).
+func (r *Resolver) Model(args struct{ Name, EntityName string }) (*ProjectResolver, error) {
+	project, err := store.GetProject(r.db, args.EntityName, args.Name)
+	if err != nil {
+		return nil, err
+	}
+	var entity store.Entity
+	if err := r.db.First(&entity, "id = ?", project.EntityID).Error; err != nil {
+		return nil, err
+	}
+	return &ProjectResolver{project: project, entity: &entity, db: r.db}, nil
+}
+
+// Models resolves Query.models — returns projects for an entity.
+func (r *Resolver) Models(args struct {
+	EntityName string
+	First      *int32
+	After      *string
+}) (*ProjectConnectionResolver, error) {
+	var entity store.Entity
+	if err := r.db.Where("name = ?", args.EntityName).First(&entity).Error; err != nil {
+		return nil, err
+	}
+	var projects []store.Project
+	r.db.Where("entity_id = ?", entity.ID).Order("created_at DESC").Find(&projects)
+	edges := make([]*ProjectEdgeResolver, len(projects))
+	for i := range projects {
+		edges[i] = &ProjectEdgeResolver{
+			node: &ProjectResolver{project: &projects[i], entity: &entity, db: r.db},
+		}
+	}
+	return &ProjectConnectionResolver{edges: edges}, nil
+}

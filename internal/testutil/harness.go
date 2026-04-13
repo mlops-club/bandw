@@ -11,6 +11,7 @@ import (
 	"github.com/mlops-club/bandw/internal/server"
 	"github.com/mlops-club/bandw/internal/store"
 	"github.com/tidwall/gjson"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -63,6 +64,40 @@ type GQLResponse struct {
 // Path returns the gjson result at the given dot-separated path.
 func (r *GQLResponse) Path(path string) gjson.Result {
 	return gjson.GetBytes(r.Body, path)
+}
+
+// SeedRun creates a project and run under the default "admin" entity for test setup.
+func (h *Harness) SeedRun(projectName, runName, configJSON string) {
+	// Get the default admin entity.
+	var entity store.Entity
+	h.DB.Where("name = ?", "admin").First(&entity)
+
+	// Get or create the project.
+	var project store.Project
+	result := h.DB.Where("entity_id = ? AND name = ?", entity.ID, projectName).First(&project)
+	if result.Error != nil {
+		project = store.Project{
+			Name:     projectName,
+			EntityID: entity.ID,
+		}
+		h.DB.Create(&project)
+	}
+
+	// Get the admin user.
+	var user store.User
+	h.DB.Where("username = ?", "admin").First(&user)
+
+	// Create the run.
+	run := store.Run{
+		Name:      runName,
+		ProjectID: project.ID,
+		UserID:    user.ID,
+		State:     "running",
+	}
+	if configJSON != "" {
+		run.Config = datatypes.JSON(configJSON)
+	}
+	h.DB.Create(&run)
 }
 
 // GraphQL sends an authenticated GraphQL POST and returns the parsed response.
