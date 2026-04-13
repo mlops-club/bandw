@@ -1161,37 +1161,133 @@ what the server must do — no mocking the SDK, no mocking MySQL.
 
 ---
 
-## Slice Dependency Graph
+## Parallel Tracks & Dependency Graph
 
+### Tracks
+
+Five tracks can proceed largely independently after slices 1–4 (done):
+
+| Track | Slices | Why independent |
+|-------|--------|-----------------|
+| **A — Backend Core** | 5 → 6/7 → 16/17/18 | Pure Go backend: GraphQL mutations, REST file_stream, store layer. No frontend, no artifact tables. |
+| **B — Frontend** | 8 → 9 → 10 → 11/12, 13 → 14/15 | Svelte SPA + Vite proxy. Consumes backend APIs but doesn't modify them. Needs slice 5 done before 9. |
+| **C — Artifacts** | 19 → 20 → 21/23 → 22, 28 | Own DB tables + GraphQL types. Only joins Track A at slice 20 (needs file upload from 16). |
+| **D — Reports** | 24 → 25 → 26 | Own DB tables + frontend pages. Needs frontend scaffold (8). Slice 25 reuses chart components from 11/13. |
+| **E — Auth & Teams** | 29, 30 | Only depends on auth middleware (slice 3, done). Separate DB tables, separate endpoints. |
+
+Slice 27 (Alerts) is standalone after slice 5.
+
+### Dependency Graph
+
+```mermaid
+graph TD
+    done["Slices 1–4 ✅"]
+
+    %% ── Track A: Backend Core ──
+    subgraph A["Track A — Backend Core"]
+        s5["5: UpsertBucket"]
+        s6["6: file_stream"]
+        s7["7: summary update"]
+        s16["16: MinIO + file upload"]
+        s17["17: run resume"]
+        s18["18: run stop"]
+        s27["27: alerts"]
+    end
+
+    %% ── Track B: Frontend ──
+    subgraph B["Track B — Frontend"]
+        s8["8: frontend scaffold"]
+        s9["9: runs table"]
+        s10["10: run detail"]
+        s11["11: charts"]
+        s12["12: logs"]
+        s13["13: workspace"]
+        s14["14: system metrics"]
+        s15["15: filter/sort"]
+    end
+
+    %% ── Track C: Artifacts ──
+    subgraph C["Track C — Artifacts"]
+        s19["19: artifact schema"]
+        s20["20: artifact create"]
+        s21["21: artifact query"]
+        s22["22: artifact UI"]
+        s23["23: aliases/tags"]
+        s28["28: registry"]
+    end
+
+    %% ── Track D: Reports ──
+    subgraph D["Track D — Reports"]
+        s24["24: reports editor"]
+        s25["25: panel grids"]
+        s26["26: viewer/comments"]
+    end
+
+    %% ── Track E: Auth & Teams ──
+    subgraph E["Track E — Auth & Teams"]
+        s29["29: OIDC/SSO"]
+        s30["30: teams/orgs"]
+    end
+
+    %% ── Merge nodes ──
+    mergeAB{{"🔀 Merge A→B: wire real API into frontend"}}
+    mergeAC{{"🔀 Merge A+C: artifact create needs file upload"}}
+    mergeBD{{"🔀 Merge B→D: panel grids reuse chart components"}}
+    mergeCB{{"🔀 Merge C→B: artifact UI needs frontend"}}
+
+    %% ── Edges from done ──
+    done --> s5
+    done --> s8
+    done --> s19
+    done --> s29
+    done --> s30
+
+    %% ── Track A internal ──
+    s5 --> s6
+    s5 --> s7
+    s5 --> s27
+    s6 --> s16
+    s6 --> s17
+    s6 --> s18
+
+    %% ── Track B internal ──
+    s8 --> s9
+    s9 --> s10
+    s10 --> s11
+    s10 --> s12
+    s9 --> s13
+    s13 --> s14
+    s13 --> s15
+
+    %% ── Track C internal ──
+    s19 --> s20
+    s20 --> s21
+    s20 --> s23
+    s23 --> s28
+
+    %% ── Track D internal ──
+    s24 --> s25
+    s25 --> s26
+
+    %% ── Cross-track merges ──
+    s5 --> mergeAB --> s9
+    s16 --> mergeAC --> s20
+    s8 --> s24
+    s21 --> mergeCB --> s22
+    s8 --> mergeCB
+    s11 --> mergeBD --> s25
+    s13 --> mergeBD
+    s24 --> mergeBD
 ```
-Slice 1 (scaffold)
-  → Slice 2 (DB)
-    → Slice 3 (auth)
-      → Slice 4 (viewer/serverinfo)
-        → Slice 5 (upsertBucket)
-          → Slice 6 (file_stream)          ← Tier 0 MVP complete
-            → Slice 7 (summary update)
-              → Slice 8 (frontend scaffold)
-                → Slice 9 (runs table)
-                  → Slice 10 (run detail)
-                    → Slice 11 (charts)     ← First charts
-                    → Slice 12 (logs)
-                  → Slice 13 (workspace)    ← Multi-run compare
-                    → Slice 14 (system metrics)
-                    → Slice 15 (filter/sort)
-              → Slice 16 (file upload)
-                → Slice 17 (resume)
-                → Slice 18 (stop)
-              → Slice 19 (artifact schema)
-                → Slice 20 (artifact create)
-                  → Slice 21 (artifact query)
-                    → Slice 22 (artifact UI)
-                    → Slice 23 (aliases/tags)
-                      → Slice 28 (registry)
-              → Slice 24 (reports editor)
-                → Slice 25 (panel grids)
-                  → Slice 26 (viewer/comments)
-```
+
+### Merge Points — What to Validate
+
+| Merge | What happens | Validate |
+|-------|-------------|----------|
+| **A→B** (before 9) | Frontend hits real GraphQL API for runs listing | Auth header propagation through Vite proxy; `project.runs` query returns correct shape; CORS if needed |
+| **A+C** (before 20) | Artifact creation uses MinIO pre-signed URLs from slice 16 | `createRunFiles` returns valid upload URLs; artifact manifest entries resolve to stored files; S3 bucket permissions |
+| **C→B** (before 22) | Artifact UI pages added to Svelte app | GraphQL artifact queries match frontend types; navigation/routing doesn't break existing run pages |
+| **B→D** (before 25) | Report panel grids embed chart components from slices 11/13 | Chart components work outside run-detail context (accept arbitrary run sets); no hard-coded route assumptions in chart code |
 
 ## Summary Table
 
