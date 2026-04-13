@@ -11,11 +11,11 @@ Cross-sectional development: each slice adds one capability end-to-end
 
 ## Progress Tracker
 
-> **Overall: 1 / 30 slices complete**
+> **Overall: 2 / 30 slices complete**
 
-### Phase 1: Tier 0 — SDK Init/Log/Finish (1/7)
+### Phase 1: Tier 0 — SDK Init/Log/Finish (2/7)
 - [x] Slice 1: Project Scaffold + Docker Compose + Test Harness
-- [ ] Slice 2: Database Models + GORM Setup
+- [x] Slice 2: Database Models + GORM Setup
 - [ ] Slice 3: Auth Middleware
 - [ ] Slice 4: GraphQL — Viewer + ServerInfo + ServerFeatures
 - [ ] Slice 5: GraphQL — UpsertBucket (Run Creation)
