@@ -28,6 +28,9 @@ func main() {
 	if err := store.AutoMigrate(db); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
+	if err := store.SeedDefaults(db); err != nil {
+		log.Fatalf("failed to seed defaults: %v", err)
+	}
 
 	router := server.NewRouter(db)
 

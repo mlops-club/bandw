@@ -28,6 +28,9 @@ func NewHarness(t *testing.T) *Harness {
 	if err := store.AutoMigrate(db); err != nil {
 		t.Fatalf("failed to auto-migrate: %v", err)
 	}
+	if err := store.SeedDefaults(db); err != nil {
+		t.Fatalf("failed to seed defaults: %v", err)
+	}
 
 	router := server.NewRouter(db)
 	srv := httptest.NewServer(router)

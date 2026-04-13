@@ -22,7 +22,10 @@ func NewSQLiteDB() (*gorm.DB, error) {
 }
 
 // AutoMigrate runs all GORM model migrations.
-// Models will be added in Slice 2.
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate()
+	return db.AutoMigrate(
+		&User{}, &Entity{}, &APIKey{},
+		&Project{}, &Run{},
+		&RunHistory{}, &RunEvent{}, &RunLog{},
+	)
 }
