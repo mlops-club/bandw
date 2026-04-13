@@ -1,0 +1,3 @@
+[submodule "wandb-sdk"]
+	path = wandb-sdk
+	url = https://github.com/wandb/wandb.git
