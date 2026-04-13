@@ -12,16 +12,20 @@ import (
 	"github.com/mlops-club/bandw/internal/config"
 	"github.com/mlops-club/bandw/internal/server"
 	"github.com/mlops-club/bandw/internal/store"
+	"gorm.io/gorm"
 )
 
 func main() {
 	cfg := config.Load()
 
+	var db *gorm.DB
+	var err error
 	if cfg.DatabaseURL == "" {
-		log.Fatal("DATABASE_URL is required")
+		log.Println("DATABASE_URL not set, using in-memory SQLite")
+		db, err = store.NewSQLiteDB()
+	} else {
+		db, err = store.NewMySQLDB(cfg.DatabaseURL)
 	}
-
-	db, err := store.NewMySQLDB(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}

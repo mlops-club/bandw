@@ -37,7 +37,7 @@ func SeedDefaults(db *gorm.DB) error {
 	apiKey := APIKey{
 		UserID:  user.ID,
 		Name:    "Default API Key",
-		KeyHash: "local-dev-key",
+		KeyHash: "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5",
 	}
 	return db.Create(&apiKey).Error
 }
