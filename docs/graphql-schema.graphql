@@ -1,0 +1,1207 @@
+# =============================================================================
+# W&B-Compatible GraphQL Schema
+# Reverse-engineered from wandb/wandb SDK source code (wandb-core Go + Python)
+#
+# Sources:
+#   core/api/graphql/*.graphql           (Go genqlient operations)
+#   wandb/sdk/artifacts/_generated/      (Python ariadne-codegen operations)
+#   wandb/sdk/internal/internal_api.py   (Python inline gql() strings)
+#   wandb/apis/public/                   (Public API queries)
+#   core/api/graphql/genqlient.yaml      (Scalar bindings)
+#
+# Scope:
+#   Prioritizes API surface used for runs, artifacts, and reports.
+#   Intentionally excludes sweep, run-queue, and launch-only features.
+#
+# Legend:
+#   [P0] = required for wandb.init/log/finish
+#   [P1] = required for artifacts + registry
+#   [P2] = collaboration, advanced features
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Custom Scalars
+# ---------------------------------------------------------------------------
+
+"JSON-encoded string (not raw JSON). Server must serialize/deserialize."
+scalar JSONString
+
+"Arbitrary JSON value."
+scalar JSON
+
+"64-bit integer (step numbers can exceed 32-bit range)."
+scalar Int64
+
+"ISO 8601 timestamp."
+scalar DateTime
+
+"Duration string, e.g. '1h30m'. Bound to int64 (milliseconds) in Go."
+scalar Duration
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+enum AlertSeverity {
+  INFO
+  WARN
+  ERROR
+}
+
+enum ArtifactState {
+  PENDING
+  COMMITTED
+  DELETED
+}
+
+enum ArtifactManifestType {
+  FULL
+  INCREMENTAL
+  PATCH
+}
+
+enum ArtifactStorageLayout {
+  V1
+  V2
+}
+
+enum ArtifactDigestAlgorithm {
+  MANIFEST_MD5
+}
+
+enum CompleteMultipartAction {
+  Complete
+}
+
+enum ArtifactCollectionType {
+  SEQUENCE
+  PORTFOLIO
+}
+
+# ---------------------------------------------------------------------------
+# Relay Pagination (standard)
+# ---------------------------------------------------------------------------
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# ---------------------------------------------------------------------------
+# Core Object Types
+# ---------------------------------------------------------------------------
+
+# ---- Users & Entities ----
+
+type User {
+  id: ID!
+  entity: String            # default entity name — REQUIRED non-null for Viewer
+  username: String
+  email: String
+  name: String
+  photoUrl: String
+  flags: JSONString          # serialized feature flags
+  teams: EntityConnection
+  organizations: [Organization!]
+}
+
+type Entity {
+  id: ID!
+  name: String!
+  available: Boolean
+  isTeam: Boolean
+  photoUrl: String
+  readOnly: Boolean
+  readOnlyAdmin: Boolean
+  privateOnly: Boolean
+  storageBytes: Int64
+  codeSavingEnabled: Boolean
+  defaultAccess: String
+  isPaid: Boolean
+  organization: Organization
+  user: User
+  members: [Member!]
+  # Sub-queries
+  project(name: String): Project
+  projects(after: String, first: Int, filters: JSONString): ProjectConnection
+  integrations(after: String, first: Int): IntegrationConnection
+  artifactCollections(
+    projectFilters: JSONString
+    filters: JSONString
+    collectionTypes: [ArtifactCollectionType!]
+    after: String
+    first: Int
+  ): ArtifactCollectionConnection
+  artifactMemberships(
+    projectFilters: JSONString
+    collectionFilters: JSONString
+    filters: JSONString
+    after: String
+    first: Int
+  ): ArtifactMembershipConnection
+}
+
+type EntityConnection {
+  edges: [EntityEdge!]!
+  pageInfo: PageInfo!
+}
+
+type EntityEdge {
+  node: Entity
+  cursor: String
+}
+
+type Organization {
+  name: String!
+  orgEntity: Entity
+  coreWeaveOrganizationId: String
+}
+
+# ---- Projects (legacy name: "Model") ----
+
+type Project {
+  id: ID!
+  name: String!
+  entityName: String
+  entity: Entity!
+  description: String
+  repo: String
+  dockerImage: String
+  access: String
+  createdAt: DateTime
+  updatedAt: DateTime
+  isBenchmark: Boolean
+  readOnly: Boolean
+  user: User
+  views: JSONString
+  allowAllArtifactTypesInRegistry: Boolean
+
+  # Run access
+  run(name: String!): Run
+  runs(filters: JSONString, after: String, first: Int, order: String): RunConnection
+  runCount(filters: JSONString): Int
+  "Legacy alias — same as runs, uses 'bucket' naming"
+  bucket(name: String!, missingOk: Boolean, desc: String): Run
+  buckets(first: Int, after: String): RunConnection
+
+  # Artifact access
+  artifact(name: String!, enableTracking: Boolean): Artifact
+  artifactType(name: String!): ArtifactType
+  artifactTypes(after: String, first: Int, includeAll: Boolean): ArtifactTypeConnection
+  artifactCollection(name: String!): ArtifactCollection
+  artifactCollections(
+    after: String
+    first: Int
+    filters: JSONString
+    order: String
+  ): ArtifactCollectionConnection
+  artifactCollectionMembership(name: String!): ArtifactCollectionMembership
+
+  # Members (registry)
+  members: [ProjectMember!]
+  teamMembers: [ProjectTeamMember!]
+  allViews(
+    viewType: String
+    viewName: String
+    first: Int
+    after: String
+  ): ViewConnection
+}
+
+type ProjectConnection {
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ProjectEdge {
+  node: Project
+  cursor: String
+}
+
+type View {
+  id: ID!
+  name: String
+  displayName: String
+  description: String
+  user: User
+  spec: JSONString
+  updatedAt: DateTime
+  createdAt: DateTime
+}
+
+type ViewConnection {
+  edges: [ViewEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ViewEdge {
+  node: View
+  cursor: String
+}
+
+# ---- Runs (legacy name: "Bucket") ----
+
+type Run {
+  id: ID!
+  name: String!
+  displayName: String
+  description: String
+  notes: String
+  config: JSONString
+  summaryMetrics: JSONString
+  sweepName: String
+  state: String                        # "running", "finished", "crashed", "failed"
+  group: String
+  jobType: String
+  commit: String
+  readOnly: Boolean
+  createdAt: DateTime
+  updatedAt: DateTime
+  heartbeatAt: DateTime
+  tags: [String!]
+  host: String
+  stopped: Boolean
+  user: User
+  project: Project
+  projectId: String
+
+  # History / metrics
+  historyLineCount: Int
+  logLineCount: Int
+  eventsLineCount: Int
+  historyTail: JSONString              # last N history lines (for resume)
+  eventsTail: JSONString               # last N event lines (for resume)
+  systemMetrics: JSONString
+  historyKeys: JSON
+
+  "Filtered internal config for resume."
+  wandbConfig(keys: [String!]): JSONString
+
+  "Sampled or paginated history."
+  history(minStep: Int64, maxStep: Int64, samples: Int): [JSONString!]
+  sampledHistory(specs: [JSONString!]!): [JSON]
+  parquetHistory(liveKeys: [String!]!): ParquetHistory
+
+  "Run environment info."
+  runInfo: RunInfo
+
+  # File access
+  files(names: [String], pattern: String, after: String, first: Int): FileConnection
+
+  # Artifact lineage
+  inputArtifacts(after: String, first: Int): ArtifactConnection
+  outputArtifacts(after: String, first: Int): ArtifactConnection
+}
+
+type RunConnection {
+  edges: [RunEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type RunEdge {
+  node: Run
+  cursor: String
+}
+
+type RunInfo {
+  program: String
+  args: [String]
+  os: String
+  python: String
+  colab: Boolean
+  executable: String
+  codeSaved: Boolean
+  cpuCount: Int
+  gpuCount: Int
+  gpu: String
+  git: GitInfo
+}
+
+type GitInfo {
+  remote: String
+  commit: String
+}
+
+type ParquetHistory {
+  parquetUrls: [String!]!
+  liveData: [JSON!]!
+}
+
+# ---- Files ----
+
+type File {
+  id: ID!
+  name: String!
+  displayName: String
+  url(upload: Boolean): String
+  directUrl: String
+  uploadUrl: String
+  uploadHeaders: [String!]
+  storagePath: String
+  sizeBytes: Int64
+  size: Int64
+  md5: String
+  digest: String
+  mimetype: String
+  updatedAt: DateTime
+  artifact: Artifact
+  uploadMultipartUrls: UploadMultipartUrls
+}
+
+type FileConnection {
+  uploadHeaders: [String!]
+  edges: [FileEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type FileEdge {
+  node: File
+  cursor: String
+}
+
+type UploadMultipartUrls {
+  uploadID: String!
+  uploadUrlParts: [UploadUrlPart!]!
+}
+
+type UploadUrlPart {
+  partNumber: Int64!
+  uploadUrl: String!
+}
+
+# ---- Artifacts ----
+
+type Artifact {
+  id: ID!
+  state: ArtifactState!
+  digest: String!
+  commitHash: String
+  description: String
+  metadata: JSONString
+  versionIndex: Int
+  size: Int64
+  fileCount: Int
+  createdAt: DateTime
+  updatedAt: DateTime
+  ttlDurationSeconds: Int64
+  ttlIsInherited: Boolean
+  historyStep: Int64
+
+  artifactType: ArtifactType!
+  artifactSequence: ArtifactSequence!
+  currentManifest: ArtifactManifest
+  aliases: [ArtifactAlias!]
+  tags: [Tag!]
+
+  # File access
+  files(names: [String], after: String, first: Int): FileConnection
+  filesByManifestEntries(
+    storageLayout: String!
+    manifestVersion: String!
+    entries: [ArtifactManifestEntryInput!]
+    storageRegion: String
+  ): FileConnection
+
+  # Lineage
+  createdBy: ArtifactCreator
+  usedBy: RunConnection
+  artifactMemberships: ArtifactMembershipConnection
+}
+
+"Union-like: createdBy can be a Run or other source."
+union ArtifactCreator = Run
+
+type ArtifactConnection {
+  edges: [ArtifactEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type ArtifactEdge {
+  node: Artifact
+  cursor: String
+  version: String
+}
+
+type ArtifactType {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: DateTime
+  artifact(name: String!): Artifact
+  artifactCollection(name: String!): ArtifactCollection
+  artifactCollections(
+    after: String
+    first: Int
+    filters: JSONString
+    order: String
+  ): ArtifactCollectionConnection
+}
+
+type ArtifactTypeConnection {
+  edges: [ArtifactTypeEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ArtifactTypeEdge {
+  node: ArtifactType
+  cursor: String
+}
+
+"ArtifactSequence = ordered collection of artifact versions (v0, v1, v2...)"
+type ArtifactSequence {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: DateTime
+  updatedAt: DateTime
+  project: Project
+  latestArtifact: Artifact
+  "Alias for defaultArtifactType — used by registry responses."
+  defaultArtifactType: ArtifactType
+  tags: TagConnection
+}
+
+"ArtifactCollection — generic term for both Sequence and Portfolio."
+type ArtifactCollection {
+  id: ID!
+  name: String!
+  description: String
+  state: String                        # "active", "deleted"
+  createdAt: DateTime
+  updatedAt: DateTime
+  project: Project
+  "Alias for defaultArtifactType."
+  defaultArtifactType: ArtifactType
+
+  aliases(after: String, first: Int): ArtifactAliasConnection
+  artifacts(after: String, first: Int, order: String, filters: JSONString): ArtifactConnection
+  artifactMembership(aliasName: String!): ArtifactCollectionMembership
+  tags: TagConnection
+}
+
+type ArtifactCollectionConnection {
+  edges: [ArtifactCollectionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+type ArtifactCollectionEdge {
+  node: ArtifactCollection
+  cursor: String
+}
+
+type ArtifactManifest {
+  id: ID!
+  file: File!
+}
+
+type ArtifactAlias {
+  id: ID!
+  alias: String!
+  artifactCollection: ArtifactCollection
+}
+
+type ArtifactAliasConnection {
+  edges: [ArtifactAliasEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ArtifactAliasEdge {
+  node: ArtifactAlias
+  cursor: String
+}
+
+type ArtifactCollectionMembership {
+  id: ID!
+  versionIndex: Int
+  artifact: Artifact
+  aliases: [ArtifactAlias!]
+  artifactCollection: ArtifactCollection
+  files(names: [String], after: String, first: Int): FileConnection
+}
+
+"Legacy alias for ArtifactCollectionMembership."
+type ArtifactMembership {
+  id: ID!
+  versionIndex: Int
+  artifact: Artifact
+  aliases: [ArtifactAlias!]
+  artifactCollection: ArtifactCollection
+  files(names: [String], after: String, first: Int): FileConnection
+}
+
+type ArtifactMembershipConnection {
+  edges: [ArtifactMembershipEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ArtifactMembershipEdge {
+  node: ArtifactCollectionMembership
+  cursor: String
+}
+
+type Tag {
+  id: ID!
+  name: String!
+}
+
+type TagConnection {
+  edges: [TagEdge!]!
+}
+
+type TagEdge {
+  node: Tag
+}
+
+# ---- Registry Members (P2) ----
+
+type Role {
+  name: String
+}
+
+type Member {
+  id: ID!
+  role: String
+  pending: Boolean
+  email: String
+  username: String
+  name: String
+  photoUrl: String
+  accountType: String
+  apiKey: String
+}
+
+type ProjectMember {
+  id: ID!
+  name: String
+  username: String
+  email: String
+  role: Role
+}
+
+type ProjectTeamMember {
+  id: ID!
+  teamName: String
+  team: Entity
+  role: Role
+}
+
+# ---- Integrations (P2) ----
+
+union Integration = SlackIntegration | WebhookIntegration
+
+type IntegrationConnection {
+  edges: [IntegrationEdge!]!
+  pageInfo: PageInfo!
+}
+
+type IntegrationEdge {
+  node: Integration
+  cursor: String
+}
+
+type SlackIntegration {
+  id: ID!
+  teamName: String
+  channelName: String
+}
+
+type WebhookIntegration {
+  id: ID!
+  name: String
+  url: String
+}
+
+# ---- ClientID Mapping ----
+
+type ClientIDMappingResult {
+  serverID: String!
+}
+
+# ---------------------------------------------------------------------------
+# Input Types
+# ---------------------------------------------------------------------------
+
+input UpsertBucketInput {
+  id: String
+  name: String
+  groupName: String
+  modelName: String               # = project name
+  entityName: String              # = entity
+  description: String
+  displayName: String
+  notes: String
+  config: JSONString
+  commit: String
+  host: String
+  debug: Boolean
+  jobProgram: String
+  jobRepo: String
+  jobType: String
+  state: String
+  sweep: String
+  tags: [String!]
+  summaryMetrics: JSONString
+}
+
+input CreateRunFilesInput {
+  entityName: String!
+  projectName: String!
+  runName: String!
+  files: [String!]!
+}
+
+input CreateArtifactInput {
+  entityName: String!
+  projectName: String!
+  runName: String
+  artifactTypeName: String!
+  artifactCollectionName: String!
+  artifactCollectionNames: [String!]!
+  digest: String!
+  digestAlgorithm: ArtifactDigestAlgorithm!
+  description: String
+  metadata: JSONString
+  labels: JSONString
+  aliases: [ArtifactAliasInput!]!
+  clientID: String!
+  sequenceClientID: String!
+  enableDigestDeduplication: Boolean!
+  historyStep: Int64
+  distributedID: String
+  clientMutationId: String
+  ttlDurationSeconds: Int64
+  tags: [TagInput!]
+  storageRegion: String
+}
+
+input CreateArtifactManifestInput {
+  artifactID: ID!
+  baseArtifactID: ID
+  name: String!
+  digest: String!
+  entityName: String!
+  projectName: String!
+  runName: String!
+  type: ArtifactManifestType!
+}
+
+input UpdateArtifactManifestInput {
+  artifactManifestID: ID!
+  digest: String
+  baseArtifactID: ID
+}
+
+input CreateArtifactFileSpecInput {
+  artifactID: ID!
+  artifactManifestID: ID
+  name: String!
+  md5: String!
+  mimetype: String
+  uploadPartsInput: [UploadPartsInput!]!
+}
+
+input CreateArtifactFilesInput {
+  artifactFiles: [CreateArtifactFileSpecInput!]!
+  storageLayout: ArtifactStorageLayout!
+}
+
+input CompleteMultipartUploadArtifactInput {
+  completeMultipartAction: CompleteMultipartAction!
+  completedParts: [UploadPartsInput!]!
+  artifactID: ID!
+  storagePath: String!
+  uploadID: String!
+}
+
+input UploadPartsInput {
+  hexMD5: String!
+  partNumber: Int64!
+}
+
+input CommitArtifactInput {
+  artifactID: ID!
+}
+
+input UseArtifactInput {
+  entityName: String!
+  projectName: String!
+  runName: String!
+  artifactID: ID!
+  usedAs: String
+  clientMutationId: String
+  artifactEntityName: String
+  artifactProjectName: String
+}
+
+input UpdateArtifactInput {
+  artifactID: ID!
+  description: String
+  metadata: JSONString
+  aliases: [ArtifactAliasInput!]
+  ttlDurationSeconds: Int64
+}
+
+input LinkArtifactInput {
+  artifactPortfolioName: String!
+  entityName: String!
+  projectName: String!
+  artifactID: ID
+  clientID: ID
+  aliases: [ArtifactAliasInput!]
+}
+
+input UnlinkArtifactInput {
+  artifactID: ID!
+  portfolioName: String!
+  entityName: String!
+  projectName: String!
+}
+
+input ArtifactAliasInput {
+  alias: String!
+  artifactCollectionName: String!
+}
+
+input AddAliasesInput {
+  artifactID: ID!
+  aliases: [ArtifactAliasInput!]!
+}
+
+input DeleteAliasesInput {
+  artifactID: ID!
+  aliases: [ArtifactAliasInput!]!
+}
+
+input DeleteArtifactInput {
+  artifactID: ID!
+  deleteAliases: Boolean
+}
+
+input TagInput {
+  tagName: String!
+  tagCategoryName: String
+  attributes: String
+}
+
+input CreateArtifactCollectionTagAssignmentsInput {
+  artifactCollectionID: ID!
+  tags: [TagInput!]!
+}
+
+input DeleteArtifactCollectionTagAssignmentsInput {
+  artifactCollectionID: ID!
+  tags: [TagInput!]!
+}
+
+input ArtifactManifestEntryInput {
+  name: String!
+  digest: String!
+  birthArtifactID: ID
+  ref: String
+  size: Int64
+}
+
+input CreateArtifactTypeInput {
+  entityName: String!
+  projectName: String!
+  name: String!
+  description: String
+}
+
+input NotifyScriptableRunAlertInput {
+  entityName: String!
+  projectName: String!
+  runName: String!
+  title: String!
+  text: String!
+  severity: AlertSeverity
+  waitDuration: Duration
+}
+
+input RewindRunInput {
+  runName: String!
+  entityName: String
+  projectName: String
+  metricName: String!
+  metricValue: Float!
+}
+
+# Registry inputs (reuse project CRUD under the hood)
+input UpsertModelInput {
+  id: String
+  name: String!
+  entityName: String!
+  description: String
+  repo: String
+  access: String
+  allowAllArtifactTypesInRegistry: Boolean
+  artifactTypeNames: [String!]
+}
+
+input RenameProjectInput {
+  entityName: String!
+  oldProjectName: String!
+  newProjectName: String!
+}
+
+input CreateProjectMembersInput {
+  projectId: ID!
+  usernames: [String!]
+  teamNames: [String!]
+  role: String
+}
+
+input DeleteProjectMembersInput {
+  projectId: ID!
+  usernames: [String!]
+  teamNames: [String!]
+}
+
+input UpdateProjectMemberInput {
+  projectId: ID!
+  username: String!
+  role: String!
+}
+
+input UpdateProjectTeamMemberInput {
+  projectId: ID!
+  teamName: String!
+  role: String!
+}
+
+input UpdateArtifactSequenceInput {
+  artifactSequenceID: ID!
+  name: String
+  description: String
+  tags: [TagInput!]
+}
+
+input UpdateArtifactPortfolioInput {
+  artifactPortfolioID: ID!
+  name: String
+  description: String
+  tags: [TagInput!]
+}
+
+input MoveArtifactSequenceInput {
+  artifactSequenceID: ID!
+  destinationArtifactTypeName: String!
+}
+
+input DeleteFilesInput {
+  files: [ID!]!
+  projectId: Int
+}
+
+input UpdateRunStateInput {
+  id: ID!
+  state: String!
+}
+
+input StopRunInput {
+  id: ID!
+}
+
+input CreateCustomChartInput {
+  entity: String!
+  name: String!
+  displayName: String!
+  type: String!
+  access: String!
+  spec: JSONString!
+}
+
+# ---------------------------------------------------------------------------
+# Mutation Payloads
+# ---------------------------------------------------------------------------
+
+type UpsertBucketPayload {
+  bucket: Run
+  inserted: Boolean
+}
+
+type CreateRunFilesPayload {
+  runID: String!
+  uploadHeaders: [String!]!
+  files: [File!]!
+}
+
+type CreateArtifactPayload {
+  artifact: Artifact!
+}
+
+type CreateArtifactManifestPayload {
+  artifactManifest: ArtifactManifest!
+}
+
+type UpdateArtifactManifestPayload {
+  artifactManifest: ArtifactManifest!
+}
+
+type CreateArtifactFilesPayload {
+  files: FileConnection!
+}
+
+type CompleteMultipartUploadArtifactPayload {
+  digest: String
+}
+
+type CommitArtifactPayload {
+  artifact: Artifact!
+}
+
+type UseArtifactPayload {
+  artifact: Artifact!
+}
+
+type UpdateArtifactPayload {
+  artifact: Artifact!
+}
+
+type LinkArtifactPayload {
+  versionIndex: Int
+  artifactMembership: ArtifactCollectionMembership
+}
+
+type UnlinkArtifactPayload {
+  success: Boolean!
+}
+
+type AddAliasesPayload {
+  success: Boolean!
+}
+
+type DeleteAliasesPayload {
+  success: Boolean!
+}
+
+type DeleteArtifactPayload {
+  artifact: Artifact
+}
+
+type DeleteArtifactSequencePayload {
+  artifactCollection: ArtifactCollection
+}
+
+type DeleteArtifactPortfolioPayload {
+  artifactCollection: ArtifactCollection
+}
+
+type UpdateArtifactSequencePayload {
+  artifactCollection: ArtifactCollection
+}
+
+type UpdateArtifactPortfolioPayload {
+  artifactCollection: ArtifactCollection
+}
+
+type MoveArtifactSequencePayload {
+  artifactCollection: ArtifactCollection
+}
+
+type CreateArtifactCollectionTagAssignmentsPayload {
+  tags: [Tag!]
+}
+
+type DeleteArtifactCollectionTagAssignmentsPayload {
+  success: Boolean!
+}
+
+type CreateArtifactTypePayload {
+  artifactType: ArtifactType!
+}
+
+type NotifyScriptableRunAlertPayload {
+  success: Boolean!
+}
+
+type RewindRunPayload {
+  rewoundRun: Run
+}
+
+type DeleteFilesPayload {
+  success: Boolean!
+}
+
+type UpdateRunStatePayload {
+  success: Boolean!
+}
+
+type StopRunPayload {
+  clientMutationId: String
+  success: Boolean!
+}
+
+type Chart {
+  id: ID!
+}
+
+type CreateCustomChartPayload {
+  chart: Chart
+}
+
+type UpsertModelPayload {
+  inserted: Boolean
+  project: Project
+  model: Project            # legacy alias
+}
+
+type DeleteModelPayload {
+  success: Boolean!
+}
+
+type RenameProjectPayload {
+  inserted: Boolean
+  project: Project
+}
+
+type CreateProjectMembersPayload {
+  success: Boolean!
+}
+
+type DeleteProjectMembersPayload {
+  success: Boolean!
+}
+
+type UpdateProjectMemberPayload {
+  success: Boolean!
+}
+
+type UpdateProjectTeamMemberPayload {
+  success: Boolean!
+}
+
+# ---------------------------------------------------------------------------
+# Root Query
+# ---------------------------------------------------------------------------
+
+type Query {
+  # [P0] Auth & server info
+  viewer: User!
+  serverInfo: ServerInfo!
+
+  # [P0] Entity/project/run resolution (legacy + modern)
+  "Legacy: 'model' = project."
+  model(name: String, entityName: String): Project
+  "Legacy: 'models' = projects list."
+  models(entityName: String, first: Int, after: String): ProjectConnection
+  "Modern project query."
+  project(name: String, entityName: String): Project
+  "Entity query."
+  entity(name: String): Entity
+  "Organization query."
+  organization(name: String!): Organization
+
+  # [P1] Artifacts
+  artifact(id: ID!): Artifact
+  artifactCollection(id: ID!): ArtifactCollection
+
+  # [P1] Client ID mapping (artifact dedup)
+  clientIDMapping(clientID: ID!): ClientIDMappingResult
+
+  # [P2] Users
+  users(query: String): UserConnection
+}
+
+type ServerInfo {
+  cliVersionInfo: JSON
+  latestLocalVersionInfo: LocalVersionInfo
+  features: [ServerFeature!]
+}
+
+type LocalVersionInfo {
+  outOfDate: Boolean!
+  latestVersionString: String!
+  versionOnThisInstanceString: String!
+}
+
+type ServerFeature {
+  name: String!
+  isEnabled: Boolean!
+}
+
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type UserEdge {
+  node: User
+  cursor: String
+}
+
+# ---------------------------------------------------------------------------
+# Root Mutation
+# ---------------------------------------------------------------------------
+
+type Mutation {
+  # [P0] Run lifecycle
+  upsertBucket(input: UpsertBucketInput!): UpsertBucketPayload
+
+  # [P1] Run files
+  createRunFiles(input: CreateRunFilesInput!): CreateRunFilesPayload
+  deleteFiles(input: DeleteFilesInput!): DeleteFilesPayload
+
+  # [P1] Artifacts
+  createArtifact(input: CreateArtifactInput!): CreateArtifactPayload
+  createArtifactManifest(input: CreateArtifactManifestInput!): CreateArtifactManifestPayload
+  updateArtifactManifest(input: UpdateArtifactManifestInput!): UpdateArtifactManifestPayload
+  createArtifactFiles(input: CreateArtifactFilesInput!): CreateArtifactFilesPayload
+  completeMultipartUploadArtifact(input: CompleteMultipartUploadArtifactInput!): CompleteMultipartUploadArtifactPayload
+  commitArtifact(input: CommitArtifactInput!): CommitArtifactPayload
+  useArtifact(input: UseArtifactInput!): UseArtifactPayload
+  updateArtifact(input: UpdateArtifactInput!): UpdateArtifactPayload
+  createArtifactType(input: CreateArtifactTypeInput!): CreateArtifactTypePayload
+  linkArtifact(input: LinkArtifactInput!): LinkArtifactPayload
+  unlinkArtifact(input: UnlinkArtifactInput!): UnlinkArtifactPayload
+  addAliases(input: AddAliasesInput!): AddAliasesPayload
+  deleteAliases(input: DeleteAliasesInput!): DeleteAliasesPayload
+  deleteArtifact(input: DeleteArtifactInput!): DeleteArtifactPayload
+  deleteArtifactSequence(input: DeleteArtifactSequenceInput!): DeleteArtifactSequencePayload
+  deleteArtifactPortfolio(input: DeleteArtifactPortfolioInput!): DeleteArtifactPortfolioPayload
+  updateArtifactSequence(input: UpdateArtifactSequenceInput!): UpdateArtifactSequencePayload
+  updateArtifactPortfolio(input: UpdateArtifactPortfolioInput!): UpdateArtifactPortfolioPayload
+  moveArtifactSequence(input: MoveArtifactSequenceInput!): MoveArtifactSequencePayload
+  createArtifactCollectionTagAssignments(input: CreateArtifactCollectionTagAssignmentsInput!): CreateArtifactCollectionTagAssignmentsPayload
+  deleteArtifactCollectionTagAssignments(input: DeleteArtifactCollectionTagAssignmentsInput!): DeleteArtifactCollectionTagAssignmentsPayload
+
+  # [P2] Projects (legacy: "model")
+  upsertModel(input: UpsertModelInput!): UpsertModelPayload
+  deleteModel(input: DeleteModelInput!): DeleteModelPayload
+  renameProject(input: RenameProjectInput!): RenameProjectPayload
+
+  # [P2] Registry members
+  createProjectMembers(input: CreateProjectMembersInput!): CreateProjectMembersPayload
+  deleteProjectMembers(input: DeleteProjectMembersInput!): DeleteProjectMembersPayload
+  updateProjectMember(input: UpdateProjectMemberInput!): UpdateProjectMemberPayload
+  updateProjectTeamMember(input: UpdateProjectTeamMemberInput!): UpdateProjectTeamMemberPayload
+
+  # [P2] Alerts
+  notifyScriptableRunAlert(input: NotifyScriptableRunAlertInput!): NotifyScriptableRunAlertPayload
+
+  # [P2] Run lifecycle extensions
+  updateRunState(input: UpdateRunStateInput!): UpdateRunStatePayload
+  stopRun(input: StopRunInput!): StopRunPayload
+  createCustomChart(input: CreateCustomChartInput!): CreateCustomChartPayload
+
+  # [P2] Run rewind
+  rewindRun(input: RewindRunInput!): RewindRunPayload
+}
+
+input DeleteModelInput {
+  id: String!
+}
+
+input DeleteArtifactSequenceInput {
+  artifactSequenceID: ID!
+}
+
+input DeleteArtifactPortfolioInput {
+  artifactPortfolioID: ID!
+}

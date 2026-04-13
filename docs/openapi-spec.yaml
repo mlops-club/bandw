@@ -1,0 +1,1041 @@
+openapi: 3.0.3
+info:
+  title: W&B Clone Backend API
+  description: |
+    OpenAPI specification reverse-engineered from the wandb Python SDK.
+    This defines the backend API surface that a self-hosted W&B-compatible
+    server must implement for the official `wandb` SDK to function.
+
+    The API has two main layers:
+    1. **GraphQL API** (`/graphql`) - All metadata operations (runs, artifacts, users, projects)
+    2. **REST File Stream API** (`/files/.../file_stream`) - Real-time metrics/logs streaming
+    3. **OIDC token exchange** (`/oidc/token`) - Exchange an identity JWT for a bearer access token
+    4. **Artifact download handlers** (`/artifacts/...`, `/artifactsV2/...`) - Download artifact contents
+    5. **Pre-signed URL uploads** - Run/artifact files upload via generated URLs, which may be absolute or relative
+
+    Authentication: API key via HTTP Basic Auth (`api:<key>`) or Bearer token obtained
+    by exchanging `WANDB_IDENTITY_TOKEN_FILE` at `/oidc/token`.
+  version: 1.0.0
+  contact:
+    name: W&B Clone
+
+servers:
+  - url: https://api.wandb.ai
+    description: W&B Cloud (reference)
+  - url: http://localhost:8080
+    description: Self-hosted instance
+
+security:
+  - apiKeyAuth: []
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: http
+      scheme: basic
+      description: |
+        HTTP Basic Auth with username "api" and password = API key.
+        Example: Authorization: Basic base64("api:YOUR_API_KEY")
+        The SDK also accepts JWT-shaped secrets through this Basic auth mechanism.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer access token obtained by POSTing an identity JWT to `/oidc/token`.
+        The bearer token itself is what the SDK sends to GraphQL, file_stream, and
+        artifact download requests after the exchange succeeds.
+
+  schemas:
+    # ──────────────────────────────────────────────
+    # GraphQL wrapper types
+    # ──────────────────────────────────────────────
+    GraphQLRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: GraphQL query or mutation string
+        variables:
+          type: object
+          description: Variables for the GraphQL operation
+        operationName:
+          type: string
+          description: Name of the operation to execute
+
+    GraphQLResponse:
+      type: object
+      properties:
+        data:
+          type: object
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+              locations:
+                type: array
+                items:
+                  type: object
+              path:
+                type: array
+                items:
+                  type: string
+
+    # ──────────────────────────────────────────────
+    # Core domain models
+    # ──────────────────────────────────────────────
+    Viewer:
+      type: object
+      properties:
+        id:
+          type: string
+        entity:
+          type: string
+          description: Default entity (username or org)
+        flags:
+          type: string
+          description: JSON-encoded feature flags
+        username:
+          type: string
+        email:
+          type: string
+        admin:
+          type: boolean
+        teams:
+          type: object
+          properties:
+            edges:
+              type: array
+              items:
+                type: object
+                properties:
+                  node:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+        apiKeys:
+          type: object
+          properties:
+            edges:
+              type: array
+              items:
+                type: object
+                properties:
+                  node:
+                    $ref: '#/components/schemas/ApiKey'
+
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+
+    Entity:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        entityName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        isBenchmark:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/Viewer'
+
+    Run:
+      type: object
+      description: |
+        A "bucket" in the GraphQL schema. Represents a single training run.
+        Created/updated via the UpsertBucket mutation.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Run ID (e.g. "abc123de")
+        displayName:
+          type: string
+          description: Human-readable name
+        description:
+          type: string
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        config:
+          type: string
+          description: JSON-encoded hyperparameters
+        summaryMetrics:
+          type: string
+          description: JSON-encoded final metrics
+        state:
+          type: string
+          enum: [running, finished, crashed, failed]
+        sweepName:
+          type: string
+        group:
+          type: string
+          description: Run group name
+        jobType:
+          type: string
+        host:
+          type: string
+        commit:
+          type: string
+          description: Git SHA
+        repo:
+          type: string
+          description: Git repo URL
+        program:
+          type: string
+          description: Script path
+        historyLineCount:
+          type: integer
+        logLineCount:
+          type: integer
+        eventsLineCount:
+          type: integer
+        historyTail:
+          type: string
+          description: JSON - last few history rows
+        eventsTail:
+          type: string
+          description: JSON - last few system events
+        wandbConfig:
+          type: string
+          description: Internal wandb config (JSON)
+        project:
+          $ref: '#/components/schemas/Project'
+
+    UpsertBucketInput:
+      type: object
+      description: Input for creating/updating a run
+      properties:
+        id:
+          type: string
+          description: Existing run ID (for updates)
+        name:
+          type: string
+          description: Run name/ID
+        modelName:
+          type: string
+          description: Project name (called "model" in legacy API)
+        entityName:
+          type: string
+        groupName:
+          type: string
+        description:
+          type: string
+        displayName:
+          type: string
+        notes:
+          type: string
+        config:
+          type: string
+          description: JSON-encoded config dict
+        commit:
+          type: string
+        host:
+          type: string
+        debug:
+          type: boolean
+        jobProgram:
+          type: string
+        jobRepo:
+          type: string
+        jobType:
+          type: string
+        state:
+          type: string
+        sweep:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        summaryMetrics:
+          type: string
+
+    UpsertBucketPayload:
+      type: object
+      properties:
+        bucket:
+          $ref: '#/components/schemas/Run'
+        inserted:
+          type: boolean
+          description: True if a new run was created, false if updated
+
+    Artifact:
+      type: object
+      properties:
+        id:
+          type: string
+        state:
+          type: string
+          enum: [PENDING, COMMITTED, DELETED]
+        digest:
+          type: string
+          description: Content hash of the artifact
+        description:
+          type: string
+        metadata:
+          type: string
+          description: JSON-encoded metadata
+        versionIndex:
+          type: integer
+        size:
+          type: integer
+        fileCount:
+          type: integer
+        commitHash:
+          type: string
+        ttlDurationSeconds:
+          type: integer
+        ttlIsInherited:
+          type: boolean
+        historyStep:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        artifactType:
+          type: object
+          properties:
+            name:
+              type: string
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactAlias'
+        artifactSequence:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            latestArtifact:
+              type: object
+              properties:
+                id:
+                  type: string
+                versionIndex:
+                  type: integer
+
+    CreateArtifactInput:
+      type: object
+      description: |
+        Current SDK shape used by `createArtifact`. In practice the SDK always sends
+        `artifactCollectionNames`, `clientID`, `sequenceClientID`, and
+        `enableDigestDeduplication=true`.
+      properties:
+        artifactTypeName:
+          type: string
+          description: e.g. "model", "dataset"
+        artifactCollectionNames:
+          type: array
+          items:
+            type: string
+          description: Collection/sequence names; the SDK currently sends a single-item list
+        entityName:
+          type: string
+        projectName:
+          type: string
+        runName:
+          type: string
+        digest:
+          type: string
+        digestAlgorithm:
+          type: string
+          enum: [MANIFEST_MD5]
+        description:
+          type: string
+        metadata:
+          type: string
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactAliasInput'
+        clientID:
+          type: string
+        sequenceClientID:
+          type: string
+        enableDigestDeduplication:
+          type: boolean
+        ttlDurationSeconds:
+          type: integer
+        distributedID:
+          type: string
+        historyStep:
+          type: integer
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagInput'
+
+    ArtifactManifest:
+      type: object
+      properties:
+        id:
+          type: string
+        file:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            displayName:
+              type: string
+            directUrl:
+              type: string
+              format: uri
+            uploadUrl:
+              type: string
+              format: uri
+            uploadHeaders:
+              type: array
+              items:
+                type: string
+
+    ArtifactFile:
+      type: object
+      properties:
+        storagePath:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+        uploadHeaders:
+          type: array
+          items:
+            type: string
+        uploadMultipartUrls:
+          type: object
+          properties:
+            uploadID:
+              type: string
+            uploadUrlParts:
+              type: array
+              items:
+                type: object
+                properties:
+                  partNumber:
+                    type: integer
+                  uploadUrl:
+                    type: string
+                    format: uri
+        artifact:
+          type: object
+          properties:
+            id:
+              type: string
+
+    CreateArtifactFileSpecInput:
+      type: object
+      properties:
+        artifactID:
+          type: string
+        name:
+          type: string
+        md5:
+          type: string
+        mimetype:
+          type: string
+        artifactManifestID:
+          type: string
+        uploadPartsInput:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadPartInput'
+
+    UploadPartInput:
+      type: object
+      properties:
+        partNumber:
+          type: integer
+        hexMD5:
+          type: string
+
+    ArtifactAlias:
+      type: object
+      properties:
+        id:
+          type: string
+        alias:
+          type: string
+        artifactCollection:
+          type: object
+          properties:
+            name:
+              type: string
+
+    ArtifactAliasInput:
+      type: object
+      properties:
+        artifactCollectionName:
+          type: string
+        alias:
+          type: string
+
+    TagInput:
+      type: object
+      properties:
+        tagName:
+          type: string
+
+    ArtifactCollection:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+        project:
+          $ref: '#/components/schemas/Project'
+        type:
+          type: object
+          properties:
+            name:
+              type: string
+
+    Registry:
+      type: object
+      description: Model Registry / Artifact Registry
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        entity:
+          type: string
+        organization:
+          type: string
+        allowAllArtifactTypes:
+          type: boolean
+        artifactTypes:
+          type: array
+          items:
+            type: string
+        visibility:
+          type: string
+
+    ServerInfo:
+      type: object
+      properties:
+        cliVersionInfo:
+          type: string
+        latestLocalVersionInfo:
+          type: object
+          properties:
+            outOfDate:
+              type: boolean
+            latestVersionString:
+              type: string
+            versionOnThisInstanceString:
+              type: string
+
+    ServerFeature:
+      type: object
+      properties:
+        name:
+          type: string
+        isEnabled:
+          type: boolean
+
+    Sweep:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        config:
+          type: string
+          description: YAML-encoded sweep config
+        state:
+          type: string
+        bestLoss:
+          type: number
+        runCount:
+          type: integer
+
+    # ──────────────────────────────────────────────
+    # File Stream API types
+    # ──────────────────────────────────────────────
+    FileStreamChunk:
+      type: object
+      required: [offset, content]
+      properties:
+        offset:
+          type: integer
+          description: Logical line offset, not a byte offset
+        content:
+          type: array
+          items:
+            type: string
+          description: Consecutive lines/chunks starting at `offset`
+
+    FileStreamRequest:
+      type: object
+      description: |
+        Payload sent to the file_stream endpoint. Either contains file chunks
+        (metrics data) or is a heartbeat/completion signal.
+      properties:
+        files:
+          type: object
+          description: |
+            Map of filename -> chunk object or list of chunk objects.
+            Filenames: "wandb-history.jsonl", "wandb-summary.json",
+            "wandb-events.jsonl", "output.log".
+            `output.log` may be encoded as a list of chunk objects when carriage
+            return deduplication produces multiple non-contiguous ranges.
+          additionalProperties:
+            oneOf:
+              - $ref: '#/components/schemas/FileStreamChunk'
+              - type: array
+                items:
+                  $ref: '#/components/schemas/FileStreamChunk'
+        complete:
+          type: boolean
+          description: True when the run is finished
+        failed:
+          type: boolean
+          description: True if the run failed
+        preempting:
+          type: boolean
+          description: True when the process is shutting down due to preemption
+        exitcode:
+          type: integer
+          description: Process exit code (sent with complete=true)
+        dropped:
+          type: integer
+          description: Number of chunks dropped due to errors
+        uploaded:
+          type: array
+          items:
+            type: string
+          description: List of artifact files successfully uploaded
+
+    FileStreamResponse:
+      type: object
+      properties:
+        limits:
+          type: object
+          description: Dynamic rate-limit settings from the server
+          additionalProperties: true
+
+    OIDCTokenExchangeRequest:
+      type: object
+      required: [grant_type, assertion]
+      properties:
+        grant_type:
+          type: string
+          enum: ["urn:ietf:params:oauth:grant-type:jwt-bearer"]
+        assertion:
+          type: string
+          description: JWT read from `WANDB_IDENTITY_TOKEN_FILE`
+
+    OIDCTokenExchangeResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+
+    # ──────────────────────────────────────────────
+    # Alert types
+    # ──────────────────────────────────────────────
+    AlertSeverity:
+      type: string
+      enum: [INFO, WARN, ERROR]
+
+paths:
+  # ══════════════════════════════════════════════
+  # GraphQL Endpoint
+  # ══════════════════════════════════════════════
+  /graphql:
+    post:
+      summary: GraphQL API
+      description: |
+        Single endpoint for all metadata operations. The wandb SDK sends all
+        structured queries and mutations through this endpoint.
+
+        The SDK uses a wider GraphQL surface than the original reverse-engineered
+        document. The most important operation families are:
+
+        **Run lifecycle**
+        - `Viewer`, `ServerInfo`, `UpsertBucket`
+        - `RunResumeStatus`, `RunStoppedStatus`
+        - `CreateRunFiles`
+        - `HistoryPage`, `SampledHistoryPage`
+        - `RunInfo`, `RunState`
+        - Compatibility queries still present in the SDK: `RunUploadUrls`,
+          `RunDownloadUrls`, `RunDownloadUrl`
+
+        **Artifacts**
+        - `CreateArtifact`, `CreateArtifactManifest`, `CreateArtifactFiles`
+        - `UpdateArtifactManifest`, `UpdateArtifact`
+        - `CompleteMultipartUploadArtifact`, `CommitArtifact`
+        - `UseArtifact`, `LinkArtifact`, `UnlinkArtifact`
+        - `ClientIDMapping`
+        - `ArtifactByID`, `ArtifactByName`, `ArtifactMembershipByName`
+        - `FetchArtifactManifest`, `GetArtifactFiles`, `GetArtifactFileUrls`,
+          `ArtifactFileURLsByManifestEntries`
+        - `ProjectArtifactCollections`, `ProjectArtifactCollection`,
+          `ProjectArtifactTypes`, `ProjectArtifactType`, `ProjectArtifacts`
+        - `ArtifactCollectionAliases`, `ArtifactCreatedBy`, `ArtifactUsedBy`,
+          `RunInputArtifacts`, `RunOutputArtifacts`
+        - `AddAliases`, `DeleteAliases`
+        - `AddArtifactCollectionTags`, `DeleteArtifactCollectionTags`
+        - `DeleteArtifact`, `DeleteArtifactSequence`, `DeleteArtifactPortfolio`
+        - `UpdateArtifactSequence`, `UpdateArtifactPortfolio`,
+          `UpdateArtifactSequenceType`
+
+        **Registry / org metadata**
+        - `FetchRegistries`, `FetchRegistry`, `RegistryCollections`,
+          `RegistryVersions`
+        - `RegistryTeamMembers`, `RegistryUserMembers`
+        - `UpsertRegistry`, `DeleteRegistry`, `RenameRegistry`
+        - `CreateRegistryMembers`, `DeleteRegistryMembers`
+        - `UpdateUserRegistryRole`, `UpdateTeamRegistryRole`
+        - `FetchOrgEntityFromEntity`, `FetchOrgEntityFromOrganization`,
+          `FetchOrgInfoFromEntity`, `OrganizationCoreWeaveOrganizationID`
+        - `FetchLinkedArtifacts`
+
+        **Projects / users / teams**
+        - `GetProjects`, `GetProject`, `CreateProject`
+        - `GetViewer`, `GetDefaultEntity`
+        - `CreateTeam`, `GetTeamEntity`
+        - `CreateInvite`, `DeleteInvite`
+        - `GenerateApiKey`, `DeleteApiKey`
+        - `CreateServiceAccount`, `CreateUserFromAdmin`, `SearchUsers`
+
+        For a self-hosted backend focused on SDK compatibility, implement the run
+        lifecycle and artifact families first.
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphQLRequest'
+      responses:
+        '200':
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphQLResponse'
+
+  /oidc/token:
+    post:
+      summary: Exchange identity token for access token
+      description: |
+        The SDK reads a JWT from `WANDB_IDENTITY_TOKEN_FILE` and exchanges it for a
+        bearer access token by POSTing form data to this endpoint.
+
+        Request shape sent by the SDK:
+        - `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`
+        - `assertion=<identity JWT>`
+
+        On success the response must include `access_token`, `token_type`, and
+        `expires_in`. The SDK caches the access token locally and reuses it until
+        expiration.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OIDCTokenExchangeRequest'
+      responses:
+        '200':
+          description: Access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OIDCTokenExchangeResponse'
+
+  # ══════════════════════════════════════════════
+  # File Stream API (REST)
+  # ══════════════════════════════════════════════
+  /files/{entity}/{project}/{run}/file_stream:
+    post:
+      summary: Stream run data (metrics, logs, events)
+      description: |
+        Real-time streaming endpoint for run data. The SDK sends chunks of
+        JSONL-encoded metrics, system stats, console output, and summary data.
+
+        **File types streamed:**
+        - `wandb-history.jsonl` - Training metrics (one JSON object per step)
+        - `wandb-summary.json` - Run summary (latest values, replace-mode)
+        - `wandb-events.jsonl` - System metrics (CPU, GPU, memory, etc.)
+        - `output.log` - Console stdout/stderr output
+
+        **Lifecycle:**
+        1. SDK sends chunks during training: `{"files": {"wandb-history.jsonl": {"offset": 12, "content": ["...\\n"]}}}`
+        2. Periodic heartbeats: `{"complete": false, "failed": false, "dropped": 0, "uploaded": []}`
+        3. Preemption notice: `{"complete": false, "preempting": true, ...}`
+        4. Final completion: `{"complete": true, "exitcode": 0, "dropped": 0, "uploaded": [...]}`
+
+        `output.log` is special: the SDK may send it as a list of chunk objects
+        when carriage-return deduplication produces multiple disjoint offsets.
+
+        **Rate limiting:**
+        Server may return `limits` in response to adjust SDK send rate.
+
+        **Retry behavior:**
+        SDK retries most transient failures with exponential backoff (up to
+        30 retries / ~2 hours). It does NOT retry HTTP 400, 403, 404, or 409.
+      parameters:
+        - name: entity
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Entity (user or team) name
+        - name: project
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Project name
+        - name: run
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Run ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileStreamRequest'
+            examples:
+              metrics_chunk:
+                summary: Streaming metrics data
+                value:
+                  files:
+                    wandb-history.jsonl:
+                      offset: 0
+                      content:
+                        - '{"loss": 0.5, "acc": 0.8, "_step": 0, "_runtime": 1.2}\n'
+                        - '{"loss": 0.3, "acc": 0.9, "_step": 1, "_runtime": 2.4}\n'
+                    output.log:
+                      - offset: 0
+                        content:
+                          - "2026-04-12T18:00:00.000000 Epoch 1/10\\n"
+                      - offset: 4
+                        content:
+                          - "2026-04-12T18:00:01.000000 loss: 0.5\\n"
+                  dropped: 0
+              heartbeat:
+                summary: Heartbeat / uploaded notification
+                value:
+                  complete: false
+                  failed: false
+                  dropped: 0
+                  uploaded: ["artifact-file-1.bin"]
+              completion:
+                summary: Run completion signal
+                value:
+                  complete: true
+                  exitcode: 0
+                  dropped: 0
+                  uploaded: []
+      responses:
+        '200':
+          description: Chunk accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileStreamResponse'
+
+  /artifacts/{entity}/{digest}:
+    get:
+      summary: Download artifact file via V1 handler
+      description: |
+        Artifact download handler used when artifact storage layout is `V1`.
+        The SDK authenticates this request with Bearer if an access token is
+        available; otherwise it uses HTTP Basic auth.
+      parameters:
+        - name: entity
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: digest
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact file stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /artifactsV2/{region}/{entity}/{project}/{collection}/{artifactOrBirthId}/{birthArtifactIdOrDigest}/{digestOrFilename}/{filename}:
+    get:
+      summary: Download artifact file via V2 handler
+      description: |
+        Artifact download handler used when artifact storage layout is `V2`.
+        The exact path shape varies with server feature flags:
+        - `/artifactsV2/{region}/{entity}/{project}/{collection}/{artifact_id}/{birth_artifact_id}/{digest}/{filename}`
+        - `/artifactsV2/{region}/{entity}/{project}/{collection}/{birth_artifact_id}/{digest}/{filename}`
+        - `/artifactsV2/{region}/{entity}/{birth_artifact_id}/{digest}`
+
+        This templated path documents the family rather than a single concrete
+        router signature.
+      parameters:
+        - name: region
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entity
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: project
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: collection
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: artifactOrBirthId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: birthArtifactIdOrDigest
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: digestOrFilename
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact file stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ══════════════════════════════════════════════
+  # Pre-signed URL File Upload (Object Storage)
+  # ══════════════════════════════════════════════
+  /upload/{storagePath}:
+    put:
+      summary: Upload file to pre-signed URL
+      description: |
+        Files (artifacts, model checkpoints, media) are uploaded using URLs
+        obtained via GraphQL mutations such as `CreateRunFiles`,
+        `CreateArtifactFiles`, and `CreateArtifactManifest`.
+
+        This is usually NOT a real endpoint on the W&B server: the server often
+        generates pre-signed URLs pointing to S3/GCS/Azure/MinIO. However, the
+        SDK also supports relative `uploadUrl` values and prefixes them with
+        `base_url`, so proxied uploads are part of the compatibility surface.
+
+        **Single-part upload:**
+        PUT the file content to the uploadUrl with headers from uploadHeaders.
+
+        **Multi-part upload:**
+        1. PUT each part to its uploadUrlParts[i].uploadUrl
+        2. Collect ETags from responses
+        3. Call CompleteMultipartUploadArtifact GraphQL mutation
+
+        **Pre-signed URL TTL:**
+        - Read URLs: 1 hour
+        - Write URLs: 24 hours
+      parameters:
+        - name: storagePath
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Upload successful
+
+  # ══════════════════════════════════════════════
+  # Health / Status
+  # ══════════════════════════════════════════════
+  /healthz:
+    get:
+      summary: Health check
+      description: Returns 200 if the server is healthy
+      responses:
+        '200':
+          description: Server is healthy
