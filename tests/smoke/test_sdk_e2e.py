@@ -10,10 +10,8 @@ Usage:
 Override the server URL:
     BANDW_URL=http://localhost:9090 uv run python tests/smoke/test_sdk_e2e.py
 
-Current limitations (Slice 6 not yet implemented):
-    - wandb.log() metrics are NOT stored (file_stream endpoint missing)
-    - wandb.finish() will produce errors (expected, handled gracefully)
-    - What IS tested: run creation, config storage, project auto-creation
+Tests: run creation, config storage, project auto-creation, metrics
+ingestion via file_stream, and clean run completion.
 """
 
 import json
@@ -100,26 +98,20 @@ run_id = run.id           # random short ID — this is the bucket "name" in the
 run_display = run.name    # human-readable display name
 print(f"  SDK returned: id={run_id}, display_name={run_display}, project={run.project}")
 
-# ── Step 2: Simulate training (log will fail — Slice 6) ───────────
+# ── Step 2: Simulate training ─────────────────────────────────────
 
-print("\n2) Simulating training loop (wandb.log — expects errors)...")
+print("\n2) Simulating training loop (wandb.log)...")
 for epoch in range(3):
-    try:
-        wandb.log({
-            "epoch": epoch,
-            "loss": 1.0 / (epoch + 1),
-            "accuracy": 0.5 + epoch * 0.15,
-        })
-    except Exception:
-        pass  # Expected: file_stream not implemented yet
+    wandb.log({
+        "epoch": epoch,
+        "loss": 1.0 / (epoch + 1),
+        "accuracy": 0.5 + epoch * 0.15,
+    })
 
-# ── Step 3: Finish the run (will error on file_stream) ─────────────
+# ── Step 3: Finish the run ────────────────────────────────────────
 
-print("\n3) Calling wandb.finish() (expects file_stream errors)...")
-try:
-    run.finish()
-except Exception:
-    pass  # Expected
+print("\n3) Calling wandb.finish()...")
+run.finish()
 
 # ── Step 4: Query GraphQL and assert data ──────────────────────────
 
@@ -166,7 +158,7 @@ if run_data is None:
     sys.exit(1)
 
 assert_eq("run.name (bucket id)", run_data["name"], run_id)
-assert_eq("run.state", run_data["state"], "running")
+assert_eq("run.state", run_data["state"], "finished")
 assert_eq("run.project.name", run_data["project"]["name"], PROJECT_NAME)
 assert_eq("run.project.entity.name", run_data["project"]["entity"]["name"], ENTITY_NAME)
 
@@ -202,5 +194,6 @@ print(f"\n{'='*60}")
 print("PASS: all assertions passed")
 print(f"  - wandb.init() created run '{run_id}' (display: '{run_display}') in project '{PROJECT_NAME}'")
 print(f"  - Config with {len(train_config)} keys stored and verified via GraphQL")
-print(f"  - wandb.log() / wandb.finish() errored as expected (Slice 6 pending)")
+print(f"  - wandb.log() metrics ingested via file_stream")
+print(f"  - wandb.finish() completed cleanly (run state = finished)")
 print(f"{'='*60}")
