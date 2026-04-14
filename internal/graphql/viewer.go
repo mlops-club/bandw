@@ -16,7 +16,7 @@ func (u *UserResolver) Entity() *string  { return &u.entity.Name }
 func (u *UserResolver) Username() *string { return strPtr(u.user.Username) }
 func (u *UserResolver) Email() *string   { return strPtr(u.user.Email) }
 func (u *UserResolver) Name() *string    { return strPtr(u.user.Name) }
-func (u *UserResolver) Flags() *JSONString { return nil }
+func (u *UserResolver) Flags() *JSONString { return &JSONString{Value: "{}"} }
 
 func (u *UserResolver) Teams() *EntityConnectionResolver {
 	return &EntityConnectionResolver{edges: []*EntityEdgeResolver{}}

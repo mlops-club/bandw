@@ -111,6 +111,21 @@ func UpsertRun(db *gorm.DB, input UpsertRunInput) (*Run, bool, error) {
 	return &run, true, nil
 }
 
+// ListRuns returns runs for a project with pagination and total count.
+func ListRuns(db *gorm.DB, projectID string, limit, offset int, order string) ([]Run, int64, error) {
+	var total int64
+	db.Model(&Run{}).Where("project_id = ?", projectID).Count(&total)
+
+	if order == "" {
+		order = "created_at DESC"
+	}
+	var runs []Run
+	err := db.Where("project_id = ?", projectID).
+		Order(order).Limit(limit).Offset(offset).
+		Find(&runs).Error
+	return runs, total, err
+}
+
 // GetRunByName finds a run by project ID and run name.
 func GetRunByName(db *gorm.DB, projectID, runName string) (*Run, error) {
 	var run Run

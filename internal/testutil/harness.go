@@ -99,6 +99,20 @@ func (h *Harness) SeedRun(projectName, runName, config string) {
 	}
 }
 
+// PostFileStream sends an authenticated POST to the file_stream endpoint.
+func (h *Harness) PostFileStream(path, body string) *http.Response {
+	req, _ := http.NewRequest("POST", h.BaseURL+"/files/"+path+"/file_stream",
+		bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth("api", h.APIKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic("PostFileStream request failed: " + err.Error())
+	}
+	resp.Body.Close()
+	return resp
+}
+
 // GraphQL sends an authenticated GraphQL POST and returns the parsed response.
 func (h *Harness) GraphQL(query string) *GQLResponse {
 	payload, _ := json.Marshal(map[string]string{"query": query})
