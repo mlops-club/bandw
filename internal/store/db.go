@@ -1,6 +1,8 @@
 package store
 
 import (
+	"fmt"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,6 +21,31 @@ func NewSQLiteDB() (*gorm.DB, error) {
 	return gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+}
+
+// NewSQLiteDBFromPath opens a SQLite database at the given file path.
+// Use ":memory:" for an in-memory database.
+func NewSQLiteDBFromPath(path string) (*gorm.DB, error) {
+	logLevel := logger.Warn
+	if path == ":memory:" {
+		logLevel = logger.Silent
+	}
+	return gorm.Open(sqlite.Open(path), &gorm.Config{
+		Logger: logger.Default.LogMode(logLevel),
+	})
+}
+
+// NewDBFromConfig creates a GORM database connection based on dialect and DSN.
+// dialect must be "mysql" or "sqlite".
+func NewDBFromConfig(dialect, dsn string) (*gorm.DB, error) {
+	switch dialect {
+	case "mysql":
+		return NewMySQLDB(dsn)
+	case "sqlite":
+		return NewSQLiteDBFromPath(dsn)
+	default:
+		return nil, fmt.Errorf("unsupported database dialect: %s", dialect)
+	}
 }
 
 // AutoMigrate runs all GORM model migrations.

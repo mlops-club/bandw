@@ -18,6 +18,7 @@ The official `wandb` Python SDK points at it instead of `api.wandb.ai`.
 - `docs/OBJECTIVE_CONTEXT.md` — grounded facts about the wandb SDK protocol
 - `docs/system-spec.md` — backend service specification
 - `docs/frontend-spec.md` — UI specification
+- `docs/custom-spec.md` — bandw-specific extensions (e.g. SQLite backend)
 
 ## Rules
 
