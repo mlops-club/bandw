@@ -11,7 +11,7 @@ Cross-sectional development: each slice adds one capability end-to-end
 
 ## Progress Tracker
 
-> **Overall: 7 / 30 slices complete**
+> **Overall: 8 / 30 slices complete**
 
 ### Phase 1: Tier 0 — SDK Init/Log/Finish (7/7) ✓
 - [x] Slice 1: Project Scaffold + Docker Compose + Test Harness
@@ -22,8 +22,8 @@ Cross-sectional development: each slice adds one capability end-to-end
 - [x] Slice 6: File Stream Handler — Metrics Ingestion
 - [x] Slice 7: UpsertBucket — Summary Update on Finish
 
-### Phase 2: Frontend MVP (0/8)
-- [ ] Slice 8: Frontend Scaffold (Svelte 5)
+### Phase 2: Frontend MVP (1/8)
+- [x] Slice 8: Frontend Scaffold (Svelte 5)
 - [ ] Slice 9: Runs Table (Read-Only)
 - [ ] Slice 10: Run Detail — Overview Tab
 - [ ] Slice 11: Run Detail — Charts Tab
