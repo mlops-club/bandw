@@ -28,10 +28,34 @@ type EntityResolver struct {
 func (e *EntityResolver) ID() gql.ID   { return gql.ID(e.id) }
 func (e *EntityResolver) Name() string { return e.name }
 
-// PageInfoResolver implements the Relay PageInfo type.
-type PageInfoResolver struct{}
+// RunConnectionResolver implements the RunConnection type.
+type RunConnectionResolver struct {
+	edges      []*RunEdgeResolver
+	totalCount int32
+	hasNext    bool
+}
 
-func (p *PageInfoResolver) HasNextPage() bool     { return false }
+func (c *RunConnectionResolver) Edges() []*RunEdgeResolver { return c.edges }
+func (c *RunConnectionResolver) TotalCount() int32         { return c.totalCount }
+func (c *RunConnectionResolver) PageInfo() *PageInfoResolver {
+	return &PageInfoResolver{hasNext: c.hasNext}
+}
+
+// RunEdgeResolver implements the RunEdge type.
+type RunEdgeResolver struct {
+	node   *RunResolver
+	cursor string
+}
+
+func (e *RunEdgeResolver) Node() *RunResolver { return e.node }
+func (e *RunEdgeResolver) Cursor() *string    { return strPtr(e.cursor) }
+
+// PageInfoResolver implements the Relay PageInfo type.
+type PageInfoResolver struct {
+	hasNext bool
+}
+
+func (p *PageInfoResolver) HasNextPage() bool     { return p.hasNext }
 func (p *PageInfoResolver) HasPreviousPage() bool { return false }
 func (p *PageInfoResolver) StartCursor() *string  { return nil }
 func (p *PageInfoResolver) EndCursor() *string    { return nil }

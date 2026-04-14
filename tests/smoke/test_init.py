@@ -1,4 +1,4 @@
-"""Smoke test: wandb.init() against the bandw server.
+"""Smoke test: wandb.init() + finish() against the bandw server.
 
 Usage:
     1. Start the server:  go run ./cmd/server/
@@ -6,7 +6,7 @@ Usage:
 
 Expected:
     - wandb.init() succeeds (creates a run via UpsertBucket)
-    - run.finish() will log file_stream errors (Slice 6 not yet implemented) — that's OK
+    - run.finish() completes cleanly (file_stream endpoint stores data)
 """
 
 import os
@@ -31,10 +31,10 @@ except Exception as e:
 
 print(f"OK: Run created — id={run.id}, project={run.project}")
 
-# finish() will fail on file_stream (not implemented yet) — we expect errors.
 try:
     run.finish()
-except Exception:
-    pass  # Expected — file_stream handler not yet implemented (Slice 6)
+except Exception as e:
+    print(f"FAIL: run.finish() raised: {e}", file=sys.stderr)
+    sys.exit(1)
 
 print("PASS: smoke test completed")
