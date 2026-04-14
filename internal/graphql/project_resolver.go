@@ -1,6 +1,9 @@
 package graphql
 
 import (
+	"fmt"
+	"strconv"
+
 	gql "github.com/graph-gophers/graphql-go"
 	"github.com/mlops-club/bandw/internal/store"
 	"gorm.io/gorm"
@@ -63,4 +66,44 @@ func (p *ProjectResolver) Run(args struct{ Name string }) (*RunResolver, error) 
 		return nil, err
 	}
 	return &RunResolver{run: run, db: p.db}, nil
+}
+
+// Runs resolves Project.runs with Relay-style pagination.
+func (p *ProjectResolver) Runs(args struct {
+	First *int32
+	After *string
+	Order *string
+}) (*RunConnectionResolver, error) {
+	limit := 50
+	if args.First != nil {
+		limit = int(*args.First)
+	}
+	offset := 0
+	if args.After != nil {
+		offset, _ = strconv.Atoi(*args.After)
+	}
+	order := ""
+	if args.Order != nil {
+		order = *args.Order
+	}
+
+	runs, total, err := store.ListRuns(p.db, p.project.ID, limit, offset, order)
+	if err != nil {
+		return nil, err
+	}
+
+	edges := make([]*RunEdgeResolver, len(runs))
+	for i, r := range runs {
+		run := r
+		edges[i] = &RunEdgeResolver{
+			node:   &RunResolver{run: &run, db: p.db},
+			cursor: fmt.Sprintf("%d", offset+i+1),
+		}
+	}
+
+	return &RunConnectionResolver{
+		edges:      edges,
+		totalCount: int32(total),
+		hasNext:    int64(offset+limit) < total,
+	}, nil
 }

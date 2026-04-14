@@ -113,3 +113,24 @@ func TestUpsertBucketRunConfig(t *testing.T) {
 	assert.Nil(t, resp.Path("errors").Value())
 	assert.Contains(t, resp.Path("data.upsertBucket.bucket.config").String(), "0.01")
 }
+
+func TestProjectRunsConnection(t *testing.T) {
+	h := testutil.NewHarness(t)
+	h.SeedRun("proj", "r1", `{}`)
+	h.SeedRun("proj", "r2", `{}`)
+	h.SeedRun("proj", "r3", `{}`)
+
+	resp := h.GraphQL(`query {
+		project(name: "proj", entityName: "admin") {
+			runs(first: 2) {
+				edges { node { name state } cursor }
+				totalCount
+				pageInfo { hasNextPage }
+			}
+		}
+	}`)
+	assert.Nil(t, resp.Path("errors").Value())
+	assert.Equal(t, int64(2), resp.Path("data.project.runs.edges.#").Int())
+	assert.Equal(t, int64(3), resp.Path("data.project.runs.totalCount").Int())
+	assert.Equal(t, true, resp.Path("data.project.runs.pageInfo.hasNextPage").Bool())
+}

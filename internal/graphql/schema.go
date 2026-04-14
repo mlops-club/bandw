@@ -105,6 +105,18 @@ type Project {
 	readOnly: Boolean
 	bucket(name: String!, missingOk: Boolean): Run
 	run(name: String!): Run
+	runs(first: Int, after: String, order: String): RunConnection!
+}
+
+type RunConnection {
+	edges: [RunEdge!]!
+	pageInfo: PageInfo!
+	totalCount: Int!
+}
+
+type RunEdge {
+	node: Run
+	cursor: String
 }
 
 type Run {
