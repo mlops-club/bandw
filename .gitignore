@@ -1,1 +1,7 @@
 bin/
+server
+*.sqlite
+*.log
+wandb/
+tests/smoke/wandb/
+main.py
