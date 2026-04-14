@@ -32,3 +32,33 @@ func (r *Resolver) Viewer(ctx context.Context) (*UserResolver, error) {
 func (r *Resolver) ServerInfo() *ServerInfoResolver {
 	return &ServerInfoResolver{}
 }
+
+// Model resolves Query.model — legacy alias for project lookup.
+func (r *Resolver) Model(args struct {
+	Name       *string
+	EntityName *string
+}) (*ProjectResolver, error) {
+	return r.resolveProject(args.Name, args.EntityName)
+}
+
+// Project resolves Query.project — modern project lookup.
+func (r *Resolver) Project(args struct {
+	Name       *string
+	EntityName *string
+}) (*ProjectResolver, error) {
+	return r.resolveProject(args.Name, args.EntityName)
+}
+
+func (r *Resolver) resolveProject(name, entityName *string) (*ProjectResolver, error) {
+	if name == nil || entityName == nil {
+		return nil, nil
+	}
+	project, err := store.GetProjectByEntityAndName(r.db, *entityName, *name)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ProjectResolver{project: project, db: r.db}, nil
+}

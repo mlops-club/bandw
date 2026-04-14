@@ -65,6 +65,40 @@ func (r *GQLResponse) Path(path string) gjson.Result {
 	return gjson.GetBytes(r.Body, path)
 }
 
+// SeedRun creates a project and run via direct GORM inserts for test setup.
+// Uses the seeded "admin" entity.
+func (h *Harness) SeedRun(projectName, runName, config string) {
+	var entity store.Entity
+	if err := h.DB.Where("name = ?", "admin").First(&entity).Error; err != nil {
+		panic("SeedRun: failed to find admin entity: " + err.Error())
+	}
+	var user store.User
+	if err := h.DB.Where("username = ?", "admin").First(&user).Error; err != nil {
+		panic("SeedRun: failed to find admin user: " + err.Error())
+	}
+
+	project := store.Project{
+		Name:      projectName,
+		EntityID:  entity.ID,
+		CreatedBy: user.ID,
+	}
+	// Ignore duplicate errors (project may already exist).
+	h.DB.Where("entity_id = ? AND name = ?", entity.ID, projectName).FirstOrCreate(&project)
+
+	run := store.Run{
+		Name:      runName,
+		ProjectID: project.ID,
+		UserID:    user.ID,
+		State:     "running",
+	}
+	if config != "" {
+		run.Config = []byte(config)
+	}
+	if err := h.DB.Create(&run).Error; err != nil {
+		panic("SeedRun: failed to create run: " + err.Error())
+	}
+}
+
 // GraphQL sends an authenticated GraphQL POST and returns the parsed response.
 func (h *Harness) GraphQL(query string) *GQLResponse {
 	payload, _ := json.Marshal(map[string]string{"query": query})

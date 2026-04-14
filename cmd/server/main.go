@@ -6,26 +6,31 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/mlops-club/bandw/internal/config"
 	"github.com/mlops-club/bandw/internal/server"
 	"github.com/mlops-club/bandw/internal/store"
-	"gorm.io/gorm"
 )
 
 func main() {
 	cfg := config.Load()
+	config.ParseFlags(&cfg, os.Args[1:])
 
-	var db *gorm.DB
-	var err error
-	if cfg.DatabaseURL == "" {
-		log.Println("DATABASE_URL not set, using in-memory SQLite")
-		db, err = store.NewSQLiteDB()
-	} else {
-		db, err = store.NewMySQLDB(cfg.DatabaseURL)
+	dialect, dsn := cfg.ResolveDB()
+	log.Printf("database: dialect=%s dsn=%s", dialect, dsn)
+
+	// Create parent directories for SQLite file if needed.
+	if dialect == "sqlite" && dsn != ":memory:" {
+		dir := filepath.Dir(dsn)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			log.Fatalf("failed to create directory %s: %v", dir, err)
+		}
 	}
+
+	db, err := store.NewDBFromConfig(dialect, dsn)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
