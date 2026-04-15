@@ -1,3 +1,18 @@
 [submodule "wandb-sdk"]
 	path = wandb-sdk
 	url = https://github.com/wandb/wandb.git
+[submodule "vendor-sdks/clearml"]
+	path = vendor-sdks/clearml
+	url = https://github.com/allegroai/clearml.git
+[submodule "vendor-sdks/aim"]
+	path = vendor-sdks/aim
+	url = https://github.com/aimhubio/aim.git
+[submodule "vendor-sdks/comet-examples"]
+	path = vendor-sdks/comet-examples
+	url = https://github.com/comet-ml/comet-examples.git
+[submodule "vendor-sdks/comet-ml"]
+	path = vendor-sdks/comet-ml
+	url = https://github.com/comet-ml/comet-llm.git
+[submodule "vendor-sdks/mlflow"]
+	path = vendor-sdks/mlflow
+	url = https://github.com/mlflow/mlflow.git
