@@ -18,6 +18,77 @@
 		})
 	);
 
+	// Filters
+	let searchQuery = $state('');
+	let stateFilter = $state('all');
+	let sortBy = $state('created');
+	let sortDir = $state<'asc' | 'desc'>('desc');
+
+	type RunNode = {
+		name: string;
+		displayName: string | null;
+		state: string | null;
+		createdAt: string | null;
+		updatedAt: string | null;
+		summaryMetrics: string | null;
+		tags: string[] | null;
+		user: { username: string } | null;
+	};
+
+	const allRuns = $derived<RunNode[]>(
+		$result.data?.project?.runs?.edges?.map((e: { node: RunNode }) => e.node) ?? []
+	);
+
+	const states = $derived([...new Set(allRuns.map((r) => r.state).filter(Boolean))]);
+
+	const filteredRuns = $derived.by(() => {
+		let runs = allRuns;
+
+		// Search filter
+		if (searchQuery) {
+			const q = searchQuery.toLowerCase();
+			runs = runs.filter(
+				(r) =>
+					(r.displayName || r.name).toLowerCase().includes(q) ||
+					r.tags?.some((t) => t.toLowerCase().includes(q))
+			);
+		}
+
+		// State filter
+		if (stateFilter !== 'all') {
+			runs = runs.filter((r) => r.state === stateFilter);
+		}
+
+		// Sort
+		runs = [...runs].sort((a, b) => {
+			let cmp = 0;
+			if (sortBy === 'name') {
+				cmp = (a.displayName || a.name).localeCompare(b.displayName || b.name);
+			} else if (sortBy === 'state') {
+				cmp = (a.state ?? '').localeCompare(b.state ?? '');
+			} else {
+				cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+			}
+			return sortDir === 'asc' ? cmp : -cmp;
+		});
+
+		return runs;
+	});
+
+	function toggleSort(col: string) {
+		if (sortBy === col) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortBy = col;
+			sortDir = col === 'name' ? 'asc' : 'desc';
+		}
+	}
+
+	function sortIndicator(col: string): string {
+		if (sortBy !== col) return '';
+		return sortDir === 'asc' ? ' ▲' : ' ▼';
+	}
+
 	function parseSummary(raw: string | null): Record<string, number> {
 		if (!raw) return {};
 		try {
@@ -47,26 +118,33 @@
 {:else if $result.error}
 	<p class="error">Error: {$result.error.message}</p>
 {:else if $result.data?.project}
-	{@const runs = $result.data.project.runs}
-	<p class="count">{runs.totalCount} run{runs.totalCount !== 1 ? 's' : ''}</p>
+	<div class="controls">
+		<input type="text" placeholder="Search runs..." class="search" bind:value={searchQuery} />
+		<select class="filter" bind:value={stateFilter}>
+			<option value="all">All states</option>
+			{#each states as s}
+				<option value={s}>{s}</option>
+			{/each}
+		</select>
+		<span class="count">{filteredRuns.length} of {allRuns.length} runs</span>
+	</div>
 
-	{#if runs.edges.length === 0}
-		<p class="empty">No runs yet.</p>
+	{#if filteredRuns.length === 0}
+		<p class="empty">{allRuns.length === 0 ? 'No runs yet.' : 'No runs match filters.'}</p>
 	{:else}
 		<div class="table-wrap">
 			<table>
 				<thead>
 					<tr>
-						<th>Name</th>
-						<th>State</th>
+						<th class="sortable" onclick={() => toggleSort('name')}>Name{sortIndicator('name')}</th>
+						<th class="sortable" onclick={() => toggleSort('state')}>State{sortIndicator('state')}</th>
 						<th>Summary</th>
 						<th>Tags</th>
-						<th>Created</th>
-						<th>Duration</th>
+						<th class="sortable" onclick={() => toggleSort('created')}>Created{sortIndicator('created')}</th>
 					</tr>
 				</thead>
 				<tbody>
-					{#each runs.edges as { node: run }}
+					{#each filteredRuns as run}
 						{@const summary = parseSummary(run.summaryMetrics)}
 						<tr>
 							<td>
@@ -93,7 +171,6 @@
 								{/if}
 							</td>
 							<td>{relativeTime(run.createdAt)}</td>
-							<td>{relativeTime(run.createdAt)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -107,13 +184,45 @@
 <style>
 	h1 {
 		font-size: 1.5rem;
-		margin-bottom: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.controls {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.search {
+		flex: 1;
+		max-width: 300px;
+		padding: 0.5rem 0.75rem;
+		background: #16213e;
+		border: 1px solid #1e2d4a;
+		border-radius: 4px;
+		color: #e0e0e0;
+		font-size: 0.85rem;
+	}
+
+	.search::placeholder {
+		color: #556677;
+	}
+
+	.filter {
+		padding: 0.5rem 0.75rem;
+		background: #16213e;
+		border: 1px solid #1e2d4a;
+		border-radius: 4px;
+		color: #e0e0e0;
+		font-size: 0.85rem;
+		cursor: pointer;
 	}
 
 	.count {
 		color: #8899aa;
-		margin-bottom: 1rem;
-		font-size: 0.9rem;
+		font-size: 0.85rem;
+		margin-left: auto;
 	}
 
 	.table-wrap {
@@ -135,6 +244,15 @@
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		white-space: nowrap;
+	}
+
+	th.sortable {
+		cursor: pointer;
+		user-select: none;
+	}
+
+	th.sortable:hover {
+		color: #c0d0e0;
 	}
 
 	td {
