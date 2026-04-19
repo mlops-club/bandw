@@ -42,6 +42,17 @@ fi
 echo "==> Syncing Python dependencies..."
 uv sync --quiet 2>/dev/null || uv sync
 
+# ── wandb-core binary ─────────────────────────────────────────────────
+# The submodule's wandb package doesn't include the pre-built wandb-core
+# binary. Symlink it from the pip-installed wandb so tests can start the
+# internal service process.
+INSTALLED_CORE="$(uv run python -c "import wandb, pathlib; print(pathlib.Path(wandb.__file__).parent / 'bin' / 'wandb-core')")"
+if [ -f "$INSTALLED_CORE" ] && [ ! -f wandb-sdk/wandb/bin/wandb-core ]; then
+    mkdir -p wandb-sdk/wandb/bin
+    ln -sf "$INSTALLED_CORE" wandb-sdk/wandb/bin/wandb-core
+    echo "==> Symlinked wandb-core from installed package."
+fi
+
 # ── Build & start server ──────────────────────────────────────────────
 echo "==> Building bandw server..."
 CGO_ENABLED=1 go build -o bin/server ./cmd/server/
