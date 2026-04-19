@@ -14,8 +14,8 @@ import os
 from collections.abc import Generator, Iterator
 
 import pytest
-import wandb
 
+import wandb
 from tests.fixtures.wandb_backend_spy import (
     WandbBackendProxy,
     WandbBackendSpy,
