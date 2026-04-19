@@ -28,6 +28,23 @@ type EntityResolver struct {
 func (e *EntityResolver) ID() gql.ID   { return gql.ID(e.id) }
 func (e *EntityResolver) Name() string { return e.name }
 
+// ProjectConnectionResolver implements the ProjectConnection type.
+type ProjectConnectionResolver struct {
+	edges []*ProjectEdgeResolver
+}
+
+func (c *ProjectConnectionResolver) Edges() []*ProjectEdgeResolver { return c.edges }
+func (c *ProjectConnectionResolver) PageInfo() *PageInfoResolver   { return &PageInfoResolver{} }
+
+// ProjectEdgeResolver implements the ProjectEdge type.
+type ProjectEdgeResolver struct {
+	node   *ProjectResolver
+	cursor string
+}
+
+func (e *ProjectEdgeResolver) Node() *ProjectResolver { return e.node }
+func (e *ProjectEdgeResolver) Cursor() *string        { return strPtr(e.cursor) }
+
 // RunConnectionResolver implements the RunConnection type.
 type RunConnectionResolver struct {
 	edges      []*RunEdgeResolver

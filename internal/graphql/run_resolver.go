@@ -95,6 +95,76 @@ func (r *RunResolver) User() (*UserResolver, error) {
 	return &UserResolver{user: &user, entity: entity}, nil
 }
 
+// History returns paginated raw history rows as JSON strings.
+func (r *RunResolver) History(args struct {
+	MinStep *Int64Scalar
+	MaxStep *Int64Scalar
+	Samples *int32
+}) (*[]JSONString, error) {
+	var minStep, maxStep *int64
+	if args.MinStep != nil {
+		v := int64(*args.MinStep)
+		minStep = &v
+	}
+	if args.MaxStep != nil {
+		v := int64(*args.MaxStep)
+		maxStep = &v
+	}
+	limit := 0
+	if args.Samples != nil {
+		limit = int(*args.Samples)
+	}
+
+	rows, err := store.GetHistory(r.db, r.run.ID, minStep, maxStep, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]JSONString, len(rows))
+	for i, row := range rows {
+		result[i] = JSONString{Value: string(row.Data)}
+	}
+	return &result, nil
+}
+
+// SampledHistory returns downsampled history for specific keys.
+// Each spec is a JSON string: {"keys": ["loss"], "minStep": 0, "maxStep": 100, "samples": 500}
+func (r *RunResolver) SampledHistory(args struct {
+	Specs []JSONString
+}) (*[]*JSONScalar, error) {
+	result := make([]*JSONScalar, len(args.Specs))
+	for i, spec := range args.Specs {
+		var parsed struct {
+			Keys    []string `json:"keys"`
+			MinStep *int64   `json:"minStep"`
+			MaxStep *int64   `json:"maxStep"`
+			Samples int      `json:"samples"`
+		}
+		if err := json.Unmarshal([]byte(spec.Value), &parsed); err != nil {
+			return nil, err
+		}
+
+		rows, err := store.GetSampledHistory(r.db, r.run.ID, parsed.Keys, parsed.MinStep, parsed.MaxStep, parsed.Samples)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = &JSONScalar{Value: rows}
+	}
+	return &result, nil
+}
+
+// HistoryKeys returns all logged metric keys and their last values.
+func (r *RunResolver) HistoryKeys() (*JSONScalar, error) {
+	hk, err := store.GetHistoryKeys(r.db, r.run.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &JSONScalar{Value: map[string]interface{}{
+		"lastStep": hk.LastStep,
+		"keys":     hk.Keys,
+	}}, nil
+}
+
 func timeToDateTime(t time.Time) *DateTime {
 	if t.IsZero() {
 		return nil

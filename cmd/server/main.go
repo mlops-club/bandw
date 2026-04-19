@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -41,7 +42,20 @@ func main() {
 		log.Fatalf("failed to seed defaults: %v", err)
 	}
 
-	router := server.NewRouter(db)
+	// Serve frontend static files if the build directory exists.
+	var staticFS fs.FS
+	frontendDir := os.Getenv("BANDW_FRONTEND_DIR")
+	if frontendDir == "" {
+		frontendDir = "frontend/build"
+	}
+	if info, err := os.Stat(frontendDir); err == nil && info.IsDir() {
+		staticFS = os.DirFS(frontendDir)
+		log.Printf("serving frontend from %s", frontendDir)
+	} else {
+		log.Printf("no frontend build at %s — skipping static file serving", frontendDir)
+	}
+
+	router := server.NewRouter(db, staticFS)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
