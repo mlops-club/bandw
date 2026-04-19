@@ -17,10 +17,21 @@ func NewMySQLDB(dsn string) (*gorm.DB, error) {
 }
 
 // NewSQLiteDB opens an in-memory SQLite database for testing.
+// MaxOpenConns(1) ensures all queries use the same connection, which is
+// required for in-memory SQLite (each connection gets its own DB otherwise).
 func NewSQLiteDB() (*gorm.DB, error) {
-	return gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+	if err != nil {
+		return nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(1)
+	return db, nil
 }
 
 // NewSQLiteDBFromPath opens a SQLite database at the given file path.
@@ -54,5 +65,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&User{}, &Entity{}, &APIKey{},
 		&Project{}, &Run{},
 		&RunHistory{}, &RunEvent{}, &RunLog{},
+		// Artifact tables
+		&ArtifactType{}, &ArtifactCollection{}, &Artifact{},
+		&ArtifactAlias{}, &ArtifactManifest{}, &ArtifactManifestEntry{},
+		&ArtifactFileStored{}, &ArtifactUsage{},
+		&Tag{}, &ArtifactCollectionTag{},
 	)
 }

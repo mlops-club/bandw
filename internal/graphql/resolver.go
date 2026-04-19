@@ -4,18 +4,25 @@ import (
 	"context"
 
 	"github.com/mlops-club/bandw/internal/authctx"
+	"github.com/mlops-club/bandw/internal/storage"
 	"github.com/mlops-club/bandw/internal/store"
 	"gorm.io/gorm"
 )
 
 // Resolver is the root GraphQL resolver.
 type Resolver struct {
-	db *gorm.DB
+	db    *gorm.DB
+	store *storage.LocalStorage
 }
 
 // NewResolver creates a root resolver backed by the given database.
 func NewResolver(db *gorm.DB) *Resolver {
 	return &Resolver{db: db}
+}
+
+// NewResolverWithStorage creates a root resolver with file storage support.
+func NewResolverWithStorage(db *gorm.DB, s *storage.LocalStorage) *Resolver {
+	return &Resolver{db: db, store: s}
 }
 
 // Viewer resolves Query.viewer — returns the authenticated user.

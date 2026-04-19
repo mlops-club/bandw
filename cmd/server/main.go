@@ -10,8 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"fmt"
+
 	"github.com/mlops-club/bandw/internal/config"
 	"github.com/mlops-club/bandw/internal/server"
+	"github.com/mlops-club/bandw/internal/storage"
 	"github.com/mlops-club/bandw/internal/store"
 )
 
@@ -41,7 +44,22 @@ func main() {
 		log.Fatalf("failed to seed defaults: %v", err)
 	}
 
-	router := server.NewRouter(db)
+	// Set up local file storage for artifacts.
+	storageDir := os.Getenv("BANDW_STORAGE_DIR")
+	if storageDir == "" {
+		storageDir = "./data/storage"
+	}
+	baseURL := fmt.Sprintf("http://localhost:%s", cfg.Port)
+	if v := os.Getenv("BANDW_BASE_URL"); v != "" {
+		baseURL = v
+	}
+	localStorage, err := storage.NewLocalStorage(storageDir, baseURL)
+	if err != nil {
+		log.Fatalf("failed to create local storage: %v", err)
+	}
+	log.Printf("storage: dir=%s baseURL=%s", storageDir, baseURL) //#nosec G706 -- log output, not user-facing
+
+	router := server.NewRouterWithStorage(db, localStorage)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -107,3 +107,78 @@ func (p *ProjectResolver) Runs(args struct {
 		hasNext:    int64(offset+limit) < total,
 	}, nil
 }
+
+// ─── Artifact queries on Project ────────────────────────────────
+
+func (p *ProjectResolver) Artifact(args struct {
+	Name           string
+	EnableTracking *bool
+}) (*ArtifactResolver, error) {
+	art, err := store.GetArtifactByName(p.db, p.project.ID, args.Name)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ArtifactResolver{artifact: art, db: p.db}, nil
+}
+
+func (p *ProjectResolver) ArtifactType(args struct{ Name string }) (*ArtifactTypeResolver, error) {
+	var artType store.ArtifactType
+	if err := p.db.Where("project_id = ? AND name = ?", p.project.ID, args.Name).First(&artType).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ArtifactTypeResolver{artType: &artType, db: p.db}, nil
+}
+
+func (p *ProjectResolver) ArtifactTypes(args struct {
+	After      *string
+	First      *int32
+	IncludeAll *bool
+}) (*ArtifactTypeConnectionResolver, error) {
+	var types []store.ArtifactType
+	if err := p.db.Where("project_id = ?", p.project.ID).Find(&types).Error; err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactTypeEdgeResolver, len(types))
+	for i := range types {
+		edges[i] = &ArtifactTypeEdgeResolver{
+			node: &ArtifactTypeResolver{artType: &types[i], db: p.db},
+		}
+	}
+	return &ArtifactTypeConnectionResolver{edges: edges}, nil
+}
+
+func (p *ProjectResolver) ArtifactCollection(args struct{ Name string }) (*ArtifactCollectionResolver, error) {
+	var coll store.ArtifactCollection
+	if err := p.db.Where("project_id = ? AND name = ?", p.project.ID, args.Name).First(&coll).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ArtifactCollectionResolver{coll: &coll, db: p.db}, nil
+}
+
+func (p *ProjectResolver) ArtifactCollections(args struct {
+	After   *string
+	First   *int32
+	Filters *JSONString
+	Order   *string
+}) (*ArtifactCollectionConnectionResolver, error) {
+	var colls []store.ArtifactCollection
+	if err := p.db.Where("project_id = ?", p.project.ID).Find(&colls).Error; err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactCollectionEdgeResolver, len(colls))
+	for i := range colls {
+		edges[i] = &ArtifactCollectionEdgeResolver{
+			node: &ArtifactCollectionResolver{coll: &colls[i], db: p.db},
+		}
+	}
+	return &ArtifactCollectionConnectionResolver{edges: edges}, nil
+}

@@ -15,6 +15,9 @@ type RunResolver struct {
 	db  *gorm.DB
 }
 
+// ToRun implements the ArtifactCreator union resolution for graph-gophers.
+func (r *RunResolver) ToRun() (*RunResolver, bool) { return r, true }
+
 func (r *RunResolver) ID() gql.ID               { return gql.ID(r.run.ID) }
 func (r *RunResolver) Name() string             { return r.run.Name }
 func (r *RunResolver) DisplayName() *string     { return strPtr(r.run.DisplayName) }
@@ -93,6 +96,40 @@ func (r *RunResolver) User() (*UserResolver, error) {
 		return nil, err
 	}
 	return &UserResolver{user: &user, entity: entity}, nil
+}
+
+func (r *RunResolver) InputArtifacts(args struct {
+	After *string
+	First *int32
+}) (*ArtifactConnectionResolver, error) {
+	arts, err := store.GetArtifactsByRunUsage(r.db, r.run.ID, "input")
+	if err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactEdgeResolver, len(arts))
+	for i := range arts {
+		edges[i] = &ArtifactEdgeResolver{
+			node: &ArtifactResolver{artifact: &arts[i], db: r.db},
+		}
+	}
+	return &ArtifactConnectionResolver{edges: edges}, nil
+}
+
+func (r *RunResolver) OutputArtifacts(args struct {
+	After *string
+	First *int32
+}) (*ArtifactConnectionResolver, error) {
+	arts, err := store.GetArtifactsByRunUsage(r.db, r.run.ID, "output")
+	if err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactEdgeResolver, len(arts))
+	for i := range arts {
+		edges[i] = &ArtifactEdgeResolver{
+			node: &ArtifactResolver{artifact: &arts[i], db: r.db},
+		}
+	}
+	return &ArtifactConnectionResolver{edges: edges}, nil
 }
 
 func timeToDateTime(t time.Time) *DateTime {

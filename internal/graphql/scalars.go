@@ -62,3 +62,37 @@ func (j *JSONScalar) UnmarshalGraphQL(input interface{}) error {
 func (j JSONScalar) MarshalJSON() ([]byte, error) {
 	return json.Marshal(j.Value)
 }
+
+// Int64Scalar represents the Int64 custom scalar (64-bit integer).
+type Int64Scalar struct {
+	Value int64
+}
+
+func (Int64Scalar) ImplementsGraphQLType(name string) bool { return name == "Int64" }
+
+func (i *Int64Scalar) UnmarshalGraphQL(input interface{}) error {
+	switch v := input.(type) {
+	case int32:
+		i.Value = int64(v)
+		return nil
+	case int:
+		i.Value = int64(v)
+		return nil
+	case float64:
+		i.Value = int64(v)
+		return nil
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return err
+		}
+		i.Value = n
+		return nil
+	default:
+		return fmt.Errorf("Int64 must be a number, got %T", input)
+	}
+}
+
+func (i Int64Scalar) MarshalJSON() ([]byte, error) {
+	return json.Marshal(i.Value)
+}
