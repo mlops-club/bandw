@@ -7,18 +7,19 @@ Usage:
     BANDW_URL=http://localhost:8080 uv run python tests/smoke/probe_pytorch.py
 """
 
-import os
 import math
+import os
 
 os.environ["WANDB_BASE_URL"] = os.environ.get("BANDW_URL", "http://localhost:8080")
 os.environ["WANDB_API_KEY"] = "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5"
 os.environ["WANDB_CONSOLE"] = "wrap"
 os.environ["WANDB_SILENT"] = "true"
 
-import wandb
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+import wandb
 
 PROJECT = "pytorch-probe"
 ENTITY = "admin"
@@ -110,15 +111,17 @@ for cfg in configs:
                     total_norm += p.grad.data.norm(2).item() ** 2
             grad_norm = math.sqrt(total_norm)
 
-        wandb.log({
-            "epoch": epoch,
-            "train_loss": train_loss,
-            "train_accuracy": train_acc,
-            "test_loss": test_loss,
-            "test_accuracy": test_acc,
-            "learning_rate": cfg["lr"],
-            "grad_norm": grad_norm,
-        })
+        wandb.log(
+            {
+                "epoch": epoch,
+                "train_loss": train_loss,
+                "train_accuracy": train_acc,
+                "test_loss": test_loss,
+                "test_accuracy": test_acc,
+                "learning_rate": cfg["lr"],
+                "grad_norm": grad_norm,
+            }
+        )
 
     run.finish()
     print(f"  Done: test_accuracy={test_acc:.3f}, final_loss={test_loss:.4f}")

@@ -14,19 +14,19 @@
 	const crumbs = $derived(
 		isRunDetail
 			? [
-					{ label: entity, href: `/${entity}/projects` },
-					{ label: project, href: `/${entity}/${project}/workspace` },
+					{ label: entity ?? '', href: `/${entity}/projects` },
+					{ label: project ?? '', href: `/${entity}/${project}/workspace` },
 					{ label: page.params.runId ?? 'run', href: page.url.pathname }
 				]
 			: [
-					{ label: entity, href: `/${entity}/projects` },
-					{ label: project, href: `/${entity}/${project}/workspace` }
+					{ label: entity ?? '', href: `/${entity}/projects` },
+					{ label: project ?? '', href: `/${entity}/${project}/workspace` }
 				]
 	);
 </script>
 
 <Breadcrumb {crumbs} />
 {#if !isRunDetail}
-	<ProjectNav {entity} {project} />
+	<ProjectNav entity={entity ?? ''} project={project ?? ''} />
 {/if}
 {@render children()}

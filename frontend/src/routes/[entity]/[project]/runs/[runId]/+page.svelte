@@ -106,7 +106,7 @@
 
 	// Logs query (lazy — only fetched when logs tab is active)
 	const logsResult = $derived(
-		activeTab === 'logs'
+		(activeTab as string) === 'logs'
 			? queryStore({
 					client,
 					query: RUN_LOGS_QUERY,
@@ -210,7 +210,7 @@
 				</tbody></table>
 			</section>
 		</div>
-	{:else}
+	{:else if activeTab === 'charts'}
 		<div class="charts-grid">
 			{#if chartData.length === 0}
 				<p class="loading">Loading charts...</p>
