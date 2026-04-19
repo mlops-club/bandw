@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { queryStore, getContextClient } from '@urql/svelte';
-	import { RUN_DETAIL_QUERY, SAMPLED_HISTORY_QUERY } from '$lib/graphql/queries';
+	import { RUN_DETAIL_QUERY, SAMPLED_HISTORY_QUERY, RUN_LOGS_QUERY } from '$lib/graphql/queries';
 	import { relativeTime } from '$lib/utils/time';
 	import { getColor } from '$lib/utils/colors';
 	import StateBadge from '$lib/components/StateBadge.svelte';
@@ -12,7 +12,7 @@
 	const project = $derived(page.params.project);
 	const runId = $derived(page.params.runId);
 
-	let activeTab: 'overview' | 'charts' = $state('charts');
+	let activeTab: 'overview' | 'charts' | 'logs' = $state('charts');
 
 	const detail = $derived(
 		queryStore({
@@ -104,6 +104,30 @@
 		}
 	}
 
+	// Logs query (lazy — only fetched when logs tab is active)
+	const logsResult = $derived(
+		activeTab === 'logs'
+			? queryStore({
+					client,
+					query: RUN_LOGS_QUERY,
+					variables: { entityName: entity, projectName: project, runName: runId, limit: 5000 }
+				})
+			: null
+	);
+
+	const logLines = $derived(
+		logsResult && $logsResult?.data?.project?.run?.logLines
+			? $logsResult.data.project.run.logLines.edges.map((e: { node: { lineNum: number; content: string; stream: string } }) => e.node)
+			: []
+	);
+
+	let logSearch = $state('');
+	const filteredLogs = $derived(
+		logSearch
+			? logLines.filter((l: { content: string }) => l.content.toLowerCase().includes(logSearch.toLowerCase()))
+			: logLines
+	);
+
 	const configParsed = $derived(run ? parseConfig(run.config) : {});
 	const summaryParsed = $derived(run ? parseSummary(run.summaryMetrics) : {});
 
@@ -139,6 +163,7 @@
 	<div class="tabs">
 		<button class:active={activeTab === 'charts'} onclick={() => (activeTab = 'charts')}>Charts</button>
 		<button class:active={activeTab === 'overview'} onclick={() => (activeTab = 'overview')}>Overview</button>
+		<button class:active={activeTab === 'logs'} onclick={() => (activeTab = 'logs')}>Logs</button>
 	</div>
 
 	{#if activeTab === 'overview'}
@@ -193,6 +218,34 @@
 				{#each chartData as { key, series }}
 					<LineChart title={key} {series} />
 				{/each}
+			{/if}
+		</div>
+	{:else if activeTab === 'logs'}
+		<div class="logs-panel">
+			<div class="logs-header">
+				<input
+					type="text"
+					placeholder="Search logs..."
+					class="log-search"
+					bind:value={logSearch}
+				/>
+				<span class="log-count">{filteredLogs.length} / {logLines.length} lines</span>
+			</div>
+			{#if logsResult && $logsResult?.fetching}
+				<p class="loading">Loading logs...</p>
+			{:else if logLines.length === 0}
+				<div class="log-terminal">
+					<p class="dim">No console output captured.</p>
+				</div>
+			{:else}
+				<div class="log-terminal">
+					{#each filteredLogs as line}
+						<div class="log-line" class:stderr={line.stream === 'stderr'}>
+							<span class="line-num">{line.lineNum}</span>
+							<span class="line-content">{line.content}</span>
+						</div>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -301,5 +354,77 @@
 		color: #ef5350;
 		padding: 2rem;
 		text-align: center;
+	}
+
+	.logs-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.logs-header {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.log-search {
+		flex: 1;
+		max-width: 400px;
+		padding: 0.5rem 0.75rem;
+		background: #16213e;
+		border: 1px solid #1e2d4a;
+		border-radius: 4px;
+		color: #e0e0e0;
+		font-size: 0.85rem;
+		font-family: inherit;
+	}
+
+	.log-search::placeholder {
+		color: #556677;
+	}
+
+	.log-count {
+		color: #8899aa;
+		font-size: 0.8rem;
+	}
+
+	.log-terminal {
+		background: #0d1117;
+		border: 1px solid #1e2d4a;
+		border-radius: 6px;
+		padding: 0.75rem;
+		font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+		font-size: 0.8rem;
+		line-height: 1.5;
+		max-height: 600px;
+		overflow-y: auto;
+	}
+
+	.log-line {
+		display: flex;
+		gap: 1rem;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+
+	.log-line:hover {
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.log-line.stderr {
+		color: #ff6b6b;
+	}
+
+	.line-num {
+		color: #445566;
+		min-width: 3rem;
+		text-align: right;
+		user-select: none;
+		flex-shrink: 0;
+	}
+
+	.line-content {
+		color: #c9d1d9;
 	}
 </style>

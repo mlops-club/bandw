@@ -165,6 +165,35 @@ func (r *RunResolver) HistoryKeys() (*JSONScalar, error) {
 	}}, nil
 }
 
+// LogLines returns paginated console output for this run.
+func (r *RunResolver) LogLines(args struct {
+	Offset *int32
+	Limit  *int32
+}) (*LogLineConnectionResolver, error) {
+	offset := 0
+	if args.Offset != nil {
+		offset = int(*args.Offset)
+	}
+	limit := 1000
+	if args.Limit != nil {
+		limit = int(*args.Limit)
+	}
+
+	logs, total, err := store.GetRunLogs(r.db, r.run.ID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	edges := make([]*LogLineEdgeResolver, len(logs))
+	for i, l := range logs {
+		edges[i] = &LogLineEdgeResolver{
+			node: &LogLineResolver{lineNum: l.LineNum, content: l.Content, stream: l.Stream},
+		}
+	}
+
+	return &LogLineConnectionResolver{edges: edges, totalCount: int32(total)}, nil
+}
+
 func timeToDateTime(t time.Time) *DateTime {
 	if t.IsZero() {
 		return nil

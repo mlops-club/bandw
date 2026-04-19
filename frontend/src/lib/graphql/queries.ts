@@ -78,6 +78,25 @@ export const RUN_DETAIL_QUERY = gql`
 	}
 `;
 
+export const RUN_LOGS_QUERY = gql`
+	query RunLogs($projectName: String!, $entityName: String!, $runName: String!, $offset: Int, $limit: Int) {
+		project(name: $projectName, entityName: $entityName) {
+			run(name: $runName) {
+				logLines(offset: $offset, limit: $limit) {
+					totalCount
+					edges {
+						node {
+							lineNum
+							content
+							stream
+						}
+					}
+				}
+			}
+		}
+	}
+`;
+
 export const SAMPLED_HISTORY_QUERY = gql`
 	query SampledHistory($projectName: String!, $entityName: String!, $runName: String!, $specs: [JSONString!]!) {
 		project(name: $projectName, entityName: $entityName) {

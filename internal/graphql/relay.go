@@ -67,6 +67,33 @@ type RunEdgeResolver struct {
 func (e *RunEdgeResolver) Node() *RunResolver { return e.node }
 func (e *RunEdgeResolver) Cursor() *string    { return strPtr(e.cursor) }
 
+// LogLineConnectionResolver implements the LogLineConnection type.
+type LogLineConnectionResolver struct {
+	edges      []*LogLineEdgeResolver
+	totalCount int32
+}
+
+func (c *LogLineConnectionResolver) Edges() []*LogLineEdgeResolver { return c.edges }
+func (c *LogLineConnectionResolver) TotalCount() int32             { return c.totalCount }
+
+// LogLineEdgeResolver implements the LogLineEdge type.
+type LogLineEdgeResolver struct {
+	node *LogLineResolver
+}
+
+func (e *LogLineEdgeResolver) Node() *LogLineResolver { return e.node }
+
+// LogLineResolver implements the LogLine type.
+type LogLineResolver struct {
+	lineNum int
+	content string
+	stream  string
+}
+
+func (l *LogLineResolver) LineNum() int32  { return int32(l.lineNum) }
+func (l *LogLineResolver) Content() string { return l.content }
+func (l *LogLineResolver) Stream() string  { return l.stream }
+
 // PageInfoResolver implements the Relay PageInfo type.
 type PageInfoResolver struct {
 	hasNext bool
