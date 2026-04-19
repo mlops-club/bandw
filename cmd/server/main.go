@@ -25,7 +25,7 @@ func main() {
 	// Create parent directories for SQLite file if needed.
 	if dialect == "sqlite" && dsn != ":memory:" {
 		dir := filepath.Dir(dsn)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			log.Fatalf("failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -44,8 +44,9 @@ func main() {
 	router := server.NewRouter(db)
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: router,
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Graceful shutdown

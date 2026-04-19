@@ -1,0 +1,6 @@
+# Local development API key used in smoke tests.
+# This is a hardcoded test key for the local bandw server — it has no access
+# to any real service and is safe to commit.
+tests/smoke/test_init.py:generic-api-key:16
+tests/smoke/test_sdk_e2e.py:generic-api-key:27
+internal/testutil/harness.go:generic-api-key:48

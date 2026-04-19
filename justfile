@@ -35,3 +35,20 @@ tidy:
 # Clean build artifacts
 clean:
     rm -rf bin/
+
+# ── Git hooks ──
+
+# Install all git hook shims (pre-commit, pre-push, commit-msg).
+# Run this once after cloning, or after adding prek to dev deps.
+hooks-install:
+    uv run prek install
+
+# Run every hook against all files — useful for CI, or to validate
+# the repo after changing prek.toml.
+lint:
+    uv run prek run --all-files
+
+# Bump all hook revs to their latest tags. Review the diff before committing —
+# a broken hook update shouldn't block the whole team.
+hooks-update:
+    uv run prek autoupdate

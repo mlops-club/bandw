@@ -15,7 +15,7 @@ type ProjectResolver struct {
 	db      *gorm.DB
 }
 
-func (p *ProjectResolver) ID() gql.ID          { return gql.ID(p.project.ID) }
+func (p *ProjectResolver) ID() gql.ID           { return gql.ID(p.project.ID) }
 func (p *ProjectResolver) Name() string         { return p.project.Name }
 func (p *ProjectResolver) Description() *string { return strPtr(p.project.Description) }
 func (p *ProjectResolver) IsBenchmark() *bool   { return nil }
@@ -103,7 +103,7 @@ func (p *ProjectResolver) Runs(args struct {
 
 	return &RunConnectionResolver{
 		edges:      edges,
-		totalCount: int32(total),
+		totalCount: safeInt64ToInt32(total),
 		hasNext:    int64(offset+limit) < total,
 	}, nil
 }

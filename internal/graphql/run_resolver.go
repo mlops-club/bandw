@@ -15,22 +15,22 @@ type RunResolver struct {
 	db  *gorm.DB
 }
 
-func (r *RunResolver) ID() gql.ID            { return gql.ID(r.run.ID) }
-func (r *RunResolver) Name() string           { return r.run.Name }
-func (r *RunResolver) DisplayName() *string   { return strPtr(r.run.DisplayName) }
-func (r *RunResolver) Description() *string   { return strPtr(r.run.Description) }
-func (r *RunResolver) Notes() *string         { return strPtr(r.run.Notes) }
-func (r *RunResolver) SweepName() *string     { return strPtr(r.run.SweepName) }
-func (r *RunResolver) State() *string         { return strPtr(r.run.State) }
-func (r *RunResolver) Group() *string         { return strPtr(r.run.GroupName) }
-func (r *RunResolver) JobType() *string       { return strPtr(r.run.JobType) }
-func (r *RunResolver) Commit() *string        { return strPtr(r.run.GitCommit) }
-func (r *RunResolver) Host() *string          { return strPtr(r.run.Host) }
-func (r *RunResolver) Stopped() *bool         { b := r.run.Stopped; return &b }
-func (r *RunResolver) HistoryLineCount() *int32 { v := int32(r.run.HistoryLineCount); return &v }
-func (r *RunResolver) LogLineCount() *int32    { v := int32(r.run.LogLineCount); return &v }
-func (r *RunResolver) EventsLineCount() *int32 { v := int32(r.run.EventsLineCount); return &v }
-func (r *RunResolver) ReadOnly() *bool         { return nil }
+func (r *RunResolver) ID() gql.ID               { return gql.ID(r.run.ID) }
+func (r *RunResolver) Name() string             { return r.run.Name }
+func (r *RunResolver) DisplayName() *string     { return strPtr(r.run.DisplayName) }
+func (r *RunResolver) Description() *string     { return strPtr(r.run.Description) }
+func (r *RunResolver) Notes() *string           { return strPtr(r.run.Notes) }
+func (r *RunResolver) SweepName() *string       { return strPtr(r.run.SweepName) }
+func (r *RunResolver) State() *string           { return strPtr(r.run.State) }
+func (r *RunResolver) Group() *string           { return strPtr(r.run.GroupName) }
+func (r *RunResolver) JobType() *string         { return strPtr(r.run.JobType) }
+func (r *RunResolver) Commit() *string          { return strPtr(r.run.GitCommit) }
+func (r *RunResolver) Host() *string            { return strPtr(r.run.Host) }
+func (r *RunResolver) Stopped() *bool           { b := r.run.Stopped; return &b }
+func (r *RunResolver) HistoryLineCount() *int32 { v := safeInt32(r.run.HistoryLineCount); return &v }
+func (r *RunResolver) LogLineCount() *int32     { v := safeInt32(r.run.LogLineCount); return &v }
+func (r *RunResolver) EventsLineCount() *int32  { v := safeInt32(r.run.EventsLineCount); return &v }
+func (r *RunResolver) ReadOnly() *bool          { return nil }
 
 func (r *RunResolver) Config() *JSONString {
 	s := string(r.run.Config)

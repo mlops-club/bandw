@@ -8,7 +8,7 @@ type EntityConnectionResolver struct {
 }
 
 func (c *EntityConnectionResolver) Edges() []*EntityEdgeResolver { return c.edges }
-func (c *EntityConnectionResolver) PageInfo() *PageInfoResolver   { return &PageInfoResolver{} }
+func (c *EntityConnectionResolver) PageInfo() *PageInfoResolver  { return &PageInfoResolver{} }
 
 // EntityEdgeResolver implements the EntityEdge type.
 type EntityEdgeResolver struct {
