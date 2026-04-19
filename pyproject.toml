@@ -12,7 +12,16 @@ dependencies = [
 # This keeps the hook toolchain pinned and reproducible across the team.
 [dependency-groups]
 dev = [
+    "fastapi>=0.136.0",
+    "httpx>=0.28.1",
+    "numpy>=2.4.4",
+    "pillow>=12.2.0",
     "prek>=0.3.0",
+    "pyte>=0.8.2",
+    "pytest>=9.0.3",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "uvicorn>=0.44.0",
 ]
 
 [tool.ruff]

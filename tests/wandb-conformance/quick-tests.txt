@@ -1,0 +1,11 @@
+# Smoke-test subset: one representative test per category.
+# Used by ./tests/wandb-conformance/run.sh --quick
+
+wandb-sdk/tests/system_tests/test_core/test_wandb_init.py::test_upsert_bucket_409
+wandb-sdk/tests/system_tests/test_core/test_wandb_init.py::test_send_wandb_config_start_time_on_init
+wandb-sdk/tests/system_tests/test_core/test_wandb_run.py::test_log_nan_inf
+wandb-sdk/tests/system_tests/test_core/test_wandb_run.py::test_summary_update
+wandb-sdk/tests/system_tests/test_core/test_metric_full.py::test_metric_sync_step
+wandb-sdk/tests/system_tests/test_core/test_label_full.py::test_label_id_only
+wandb-sdk/tests/system_tests/test_core/test_telemetry_full.py::test_telemetry_finish
+wandb-sdk/tests/system_tests/test_core/test_mode_disabled_full.py::test_disabled_noop
