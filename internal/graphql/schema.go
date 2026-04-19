@@ -161,5 +161,21 @@ type Run {
 	history(minStep: Int64, maxStep: Int64, samples: Int): [JSONString!]
 	sampledHistory(specs: [JSONString!]!): [JSON]
 	historyKeys: JSON
+	logLines(offset: Int, limit: Int): LogLineConnection!
+}
+
+type LogLineConnection {
+	edges: [LogLineEdge!]!
+	totalCount: Int!
+}
+
+type LogLineEdge {
+	node: LogLine
+}
+
+type LogLine {
+	lineNum: Int!
+	content: String!
+	stream: String!
 }
 `

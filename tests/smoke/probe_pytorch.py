@@ -12,7 +12,7 @@ import math
 
 os.environ["WANDB_BASE_URL"] = os.environ.get("BANDW_URL", "http://localhost:8080")
 os.environ["WANDB_API_KEY"] = "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5"
-os.environ["WANDB_CONSOLE"] = "off"
+os.environ["WANDB_CONSOLE"] = "wrap"
 os.environ["WANDB_SILENT"] = "true"
 
 import wandb
