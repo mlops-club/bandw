@@ -18,7 +18,6 @@ os.environ["WANDB_SILENT"] = "true"
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 import wandb
 
 PROJECT = "pytorch-probe"

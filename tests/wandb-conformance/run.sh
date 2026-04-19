@@ -4,7 +4,8 @@
 #
 # Usage:
 #   ./tests/wandb-conformance/run.sh          # full suite
-#   ./tests/wandb-conformance/run.sh --quick   # smoke test (~8 tests)
+#   ./tests/wandb-conformance/run.sh --quick  # smoke test (~8 tests)
+#   ./tests/wandb-conformance/run.sh --ci     # full suite, pass if >= baseline
 #
 # Prerequisites: Go toolchain, uv, git
 
@@ -18,6 +19,7 @@ BANDW_PORT="${BANDW_PORT:-0}"
 BANDW_API_KEY="1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5"
 SQLITE_PATH="$(mktemp -d)/bandw-test.sqlite"
 SERVER_PID=""
+PYTEST_OUTPUT=""
 
 cleanup() {
     if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -29,8 +31,19 @@ cleanup() {
            wandb-sdk/tests/system_tests/conftest.py
     fi
     rm -f "$SQLITE_PATH" 2>/dev/null || true
+    [ -n "$PYTEST_OUTPUT" ] && rm -f "$PYTEST_OUTPUT" 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# ── Parse flags ───────────────────────────────────────────────────────
+MODE="full"
+CI_MODE=false
+for arg in "$@"; do
+    case "$arg" in
+        --quick) MODE="quick" ;;
+        --ci)    CI_MODE=true ;;
+    esac
+done
 
 # ── Submodule ──────────────────────────────────────────────────────────
 echo "==> Initializing wandb-sdk submodule..."
@@ -40,13 +53,13 @@ fi
 
 # ── Python deps ────────────────────────────────────────────────────────
 echo "==> Syncing Python dependencies..."
-uv sync --quiet 2>/dev/null || uv sync
+uv sync --project "$CONFORMANCE_DIR" --quiet 2>/dev/null || uv sync --project "$CONFORMANCE_DIR"
 
 # ── wandb-core binary ─────────────────────────────────────────────────
 # The submodule's wandb package doesn't include the pre-built wandb-core
 # binary. Symlink it from the pip-installed wandb so tests can start the
 # internal service process.
-INSTALLED_CORE="$(uv run python -c "import wandb, pathlib; print(pathlib.Path(wandb.__file__).parent / 'bin' / 'wandb-core')")"
+INSTALLED_CORE="$(uv run --project "$CONFORMANCE_DIR" python -c "import wandb, pathlib; print(pathlib.Path(wandb.__file__).parent / 'bin' / 'wandb-core')")"
 if [ -f "$INSTALLED_CORE" ] && [ ! -f wandb-sdk/wandb/bin/wandb-core ]; then
     mkdir -p wandb-sdk/wandb/bin
     ln -sf "$INSTALLED_CORE" wandb-sdk/wandb/bin/wandb-core
@@ -102,9 +115,13 @@ while IFS= read -r path; do
     PYTEST_EXTRA_FLAGS+=("--ignore=$path")
 done < <(clean_lines "$CONFORMANCE_DIR/ignore-files.txt")
 
-if [ "${1:-}" = "--quick" ]; then
+PYTEST_OUTPUT="$(mktemp)"
+
+# Temporarily disable set -e so pytest failures don't abort before baseline check.
+set +e
+
+if [ "$MODE" = "quick" ]; then
     echo "==> Quick mode: running smoke-test subset only."
-    # Read quick-test list from file
     QUICK_TESTS=()
     while IFS= read -r line; do
         line="${line%%#*}"
@@ -114,21 +131,43 @@ if [ "${1:-}" = "--quick" ]; then
         QUICK_TESTS+=("$line")
     done < "$CONFORMANCE_DIR/quick-tests.txt"
 
-    uv run pytest \
+    uv run --project "$CONFORMANCE_DIR" pytest \
         "${QUICK_TESTS[@]}" \
         -v --timeout=5 --no-header -n auto \
         -o "addopts=" \
-        2>&1
+        2>&1 | tee "$PYTEST_OUTPUT"
+    EXIT_CODE=${PIPESTATUS[0]}
 else
-    uv run pytest \
+    uv run --project "$CONFORMANCE_DIR" pytest \
         wandb-sdk/tests/system_tests/test_core/ \
         "${PYTEST_EXTRA_FLAGS[@]}" \
         -v --timeout=5 --no-header -n auto \
         -o "addopts=" \
-        2>&1
+        2>&1 | tee "$PYTEST_OUTPUT"
+    EXIT_CODE=${PIPESTATUS[0]}
 fi
 
-EXIT_CODE=$?
+set -e
+
+# ── Baseline check (CI mode) ─────────────────────────────────────────
+if $CI_MODE; then
+    BASELINE_FILE="$CONFORMANCE_DIR/baseline.txt"
+    if [ -f "$BASELINE_FILE" ]; then
+        BASELINE=$(tr -d '[:space:]' < "$BASELINE_FILE")
+        # Extract "N passed" from pytest summary line (portable, no grep -P)
+        PASSED=$(grep -oE '[0-9]+ passed' "$PYTEST_OUTPUT" | grep -oE '[0-9]+' | tail -1)
+        PASSED="${PASSED:-0}"
+        echo ""
+        echo "==> Baseline: $BASELINE passed | Actual: $PASSED passed"
+        if [ "$PASSED" -ge "$BASELINE" ]; then
+            echo "==> Conformance baseline met ($PASSED >= $BASELINE). CI pass."
+            exit 0
+        else
+            echo "==> REGRESSION: $PASSED < $BASELINE. CI fail."
+            exit 1
+        fi
+    fi
+fi
 
 echo ""
 if [ $EXIT_CODE -eq 0 ]; then
