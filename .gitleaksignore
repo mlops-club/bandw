@@ -4,3 +4,5 @@
 tests/smoke/test_init.py:generic-api-key:16
 tests/smoke/test_sdk_e2e.py:generic-api-key:27
 internal/testutil/harness.go:generic-api-key:48
+README.md:generic-api-key:24
+tests/wandb-conformance/run.sh:generic-api-key:18
