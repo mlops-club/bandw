@@ -13,9 +13,7 @@ import os
 import sys
 
 os.environ["WANDB_BASE_URL"] = os.environ.get("WANDB_BASE_URL", "http://localhost:8081")
-os.environ["WANDB_API_KEY"] = os.environ.get(
-    "WANDB_API_KEY", "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5"
-)
+os.environ["WANDB_API_KEY"] = os.environ.get("WANDB_API_KEY", "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5")
 # Disable console output and telemetry for cleaner test output.
 os.environ["WANDB_CONSOLE"] = "off"
 os.environ["WANDB_SILENT"] = "true"

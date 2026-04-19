@@ -111,6 +111,6 @@ func Handler(db *gorm.DB) http.HandlerFunc {
 		db.Model(&run).Updates(updates)
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}
 }

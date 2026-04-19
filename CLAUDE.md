@@ -6,8 +6,10 @@ The official `wandb` Python SDK points at it instead of `api.wandb.ai`.
 ## Project Structure
 
 - `docs/` — specs, plans, GraphQL schema (read these first for context)
-- `cmd/server/` — Go server entrypoint (future)
-- `internal/` — Go backend packages (future)
+- `cmd/server/` — Go server entrypoint
+- `internal/` — Go backend packages (authctx, config, filestream, graphql, server, store, testutil)
+- `tests/wandb-conformance/` — SDK conformance test runner and config
+- `wandb-sdk/` — upstream W&B SDK submodule (used for conformance testing)
 - `frontend/` — Svelte 5 SPA (future)
 
 ## Key Docs
@@ -54,8 +56,17 @@ uv run pytest
 ### Testing
 
 - Go integration tests use in-memory SQLite via GORM (no Docker needed)
-- SDK smoke tests use `uv run` to run wandb scripts against the dev server
+- SDK conformance tests run upstream W&B SDK system tests against our backend
 - UI tests use Playwright (future)
+
+### Merge Gate (CRITICAL)
+
+**Do not merge code that causes regressions in the SDK conformance test suite.**
+
+Run `./tests/wandb-conformance/run.sh` before merging any backend change.
+At minimum, run `./tests/wandb-conformance/run.sh --quick` for a fast
+smoke test. If any previously-passing test starts failing, the regression must
+be fixed before merging.
 
 ### What This Project Is
 

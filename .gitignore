@@ -1,7 +1,102 @@
+# Build artifacts
 bin/
 server
+
+# Databases — tests use in-memory SQLite, but local runs may create files
 *.sqlite
+*.sqlite3
+*.db
+
+# Logs
 *.log
+
+# wandb local run data — created by wandb.init() in smoke tests
 wandb/
 tests/smoke/wandb/
+
+# Scratch files
 main.py
+
+# ── Secrets ──
+# A leaked secret in git history is effectively permanent. Even if removed
+# in a later commit, it persists in reflog and any clone/fork made before
+# the cleanup. The prek hooks catch these too, but .gitignore is the first
+# line of defense — git won't even show these files as untracked.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+
+# ── Data & model files ──
+# These don't belong in git for three reasons:
+#   1. They're not diffable — git stores full copies, bloating history.
+#   2. They change frequently in ML workflows, compounding (1).
+#   3. They signal a workflow problem — use DVC, git-lfs, or bandw's
+#      own artifact system instead.
+# Tabular
+*.csv
+*.tsv
+*.parquet
+*.arrow
+*.feather
+*.avro
+# Scientific / array
+*.h5
+*.hdf5
+*.nc
+*.zarr
+*.npy
+*.npz
+# Serialized Python objects
+*.pkl
+*.pickle
+*.joblib
+# ML model weights and checkpoints
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.safetensors
+*.pb
+*.tflite
+# Archives — if you need to distribute something, use a release or artifact store
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.ruff_cache/
+
+# ── Go ──
+# We don't vendor dependencies — go.sum is the integrity check
+vendor/
+
+# ── Frontend (for when frontend/ lands) ──
+frontend/node_modules/
+frontend/dist/
+frontend/.svelte-kit/
+frontend/.vite/
+
+# ── IDE / OS ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

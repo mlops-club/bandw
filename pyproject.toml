@@ -9,3 +9,39 @@ dependencies = [
     "torch>=2.11.0",
     "wandb>=0.26.0",
 ]
+
+# prek is a dev dependency so `uv run prek install` works without a global install.
+# This keeps the hook toolchain pinned and reproducible across the team.
+[dependency-groups]
+dev = [
+    "fastapi>=0.136.0",
+    "httpx>=0.28.1",
+    "numpy>=2.4.4",
+    "pillow>=12.2.0",
+    "prek>=0.3.0",
+    "pyte>=0.8.2",
+    "pytest>=9.0.3",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "uvicorn>=0.44.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = ["vendor-sdks", "wandb-sdk"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # isort (import ordering)
+    "S",   # bandit (security: subprocess injection, assert in prod, etc.)
+    "B",   # bugbear (common pitfalls: mutable default args, except Exception, etc.)
+    "UP",  # pyupgrade (use modern Python syntax — f-strings, type unions, etc.)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# S101: allow `assert` in tests — bandit flags it because assert is stripped
+# in optimized bytecode, but test code is never run with -O.
+"tests/**" = ["S101"]

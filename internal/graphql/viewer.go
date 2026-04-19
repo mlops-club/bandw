@@ -11,11 +11,11 @@ type UserResolver struct {
 	entity *store.Entity
 }
 
-func (u *UserResolver) ID() gql.ID      { return gql.ID(u.user.ID) }
-func (u *UserResolver) Entity() *string  { return &u.entity.Name }
-func (u *UserResolver) Username() *string { return strPtr(u.user.Username) }
-func (u *UserResolver) Email() *string   { return strPtr(u.user.Email) }
-func (u *UserResolver) Name() *string    { return strPtr(u.user.Name) }
+func (u *UserResolver) ID() gql.ID         { return gql.ID(u.user.ID) }
+func (u *UserResolver) Entity() *string    { return &u.entity.Name }
+func (u *UserResolver) Username() *string  { return strPtr(u.user.Username) }
+func (u *UserResolver) Email() *string     { return strPtr(u.user.Email) }
+func (u *UserResolver) Name() *string      { return strPtr(u.user.Name) }
 func (u *UserResolver) Flags() *JSONString { return &JSONString{Value: "{}"} }
 
 func (u *UserResolver) Teams() *EntityConnectionResolver {
