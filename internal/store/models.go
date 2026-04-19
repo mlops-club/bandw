@@ -68,17 +68,17 @@ func (k *APIKey) BeforeCreate(tx *gorm.DB) error {
 
 // Project groups runs under an entity namespace.
 type Project struct {
-	ID          string    `gorm:"type:varchar(36);primaryKey" json:"id"`
-	Name        string    `gorm:"type:varchar(255);not null;uniqueIndex:idx_entity_project" json:"name"`
-	EntityID    string    `gorm:"type:varchar(36);not null;uniqueIndex:idx_entity_project;index" json:"entity_id"`
-	Entity      Entity    `gorm:"foreignKey:EntityID" json:"-"`
-	Description string    `gorm:"type:text" json:"description"`
-	CreatedBy   string    `gorm:"type:varchar(36)" json:"created_by"`
-	Repo        string    `gorm:"type:varchar(1024)" json:"repo"`
-	DockerImage string    `gorm:"type:varchar(1024)" json:"docker_image"`
-	Access      string    `gorm:"type:varchar(64)" json:"access"`
+	ID          string         `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Name        string         `gorm:"type:varchar(255);not null;uniqueIndex:idx_entity_project" json:"name"`
+	EntityID    string         `gorm:"type:varchar(36);not null;uniqueIndex:idx_entity_project;index" json:"entity_id"`
+	Entity      Entity         `gorm:"foreignKey:EntityID" json:"-"`
+	Description string         `gorm:"type:text" json:"description"`
+	CreatedBy   string         `gorm:"type:varchar(36)" json:"created_by"`
+	Repo        string         `gorm:"type:varchar(1024)" json:"repo"`
+	DockerImage string         `gorm:"type:varchar(1024)" json:"docker_image"`
+	Access      string         `gorm:"type:varchar(64)" json:"access"`
 	Views       datatypes.JSON `gorm:"type:json" json:"views"`
-	CreatedAt   time.Time `json:"created_at"`
+	CreatedAt   time.Time      `json:"created_at"`
 }
 
 func (p *Project) BeforeCreate(tx *gorm.DB) error {

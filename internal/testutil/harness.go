@@ -45,7 +45,7 @@ func NewHarness(t *testing.T) *Harness {
 	return &Harness{
 		BaseURL: srv.URL,
 		DB:      db,
-		APIKey:  "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5",
+		APIKey:  "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5", //#nosec G101 -- test-only API key for local dev server
 		srv:     srv,
 	}
 }
@@ -109,7 +109,7 @@ func (h *Harness) PostFileStream(path, body string) *http.Response {
 	if err != nil {
 		panic("PostFileStream request failed: " + err.Error())
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp
 }
 

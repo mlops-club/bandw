@@ -34,12 +34,13 @@ ENTITY_NAME = "admin"
 
 # ── Helpers ────────────────────────────────────────────────────────
 
+
 def gql(query: str, variables: dict | None = None) -> dict:
     """Send a GraphQL query and return the parsed JSON response."""
     payload = {"query": query}
     if variables:
         payload["variables"] = variables
-    r = requests.post(GQL_URL, json=payload, auth=AUTH)
+    r = requests.post(GQL_URL, json=payload, auth=AUTH, timeout=30)
     r.raise_for_status()
     data = r.json()
     if "errors" in data:
@@ -63,9 +64,9 @@ def assert_contains(label: str, haystack: str, needle: str):
 
 # ── Step 1: Run wandb.init() with config ──────────────────────────
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print(f"SDK End-to-End Test  (project={PROJECT_NAME})")
-print(f"{'='*60}")
+print(f"{'=' * 60}")
 
 # Configure the SDK to point at our server.
 os.environ["WANDB_BASE_URL"] = BASE_URL
@@ -94,19 +95,21 @@ except Exception as e:
     print(f"FAIL: wandb.init() raised: {e}", file=sys.stderr)
     sys.exit(1)
 
-run_id = run.id           # random short ID — this is the bucket "name" in the DB
-run_display = run.name    # human-readable display name
+run_id = run.id  # random short ID — this is the bucket "name" in the DB
+run_display = run.name  # human-readable display name
 print(f"  SDK returned: id={run_id}, display_name={run_display}, project={run.project}")
 
 # ── Step 2: Simulate training ─────────────────────────────────────
 
 print("\n2) Simulating training loop (wandb.log)...")
 for epoch in range(3):
-    wandb.log({
-        "epoch": epoch,
-        "loss": 1.0 / (epoch + 1),
-        "accuracy": 0.5 + epoch * 0.15,
-    })
+    wandb.log(
+        {
+            "epoch": epoch,
+            "loss": 1.0 / (epoch + 1),
+            "accuracy": 0.5 + epoch * 0.15,
+        }
+    )
 
 # ── Step 3: Finish the run ────────────────────────────────────────
 
@@ -190,10 +193,10 @@ else:
 
 # ── Summary ────────────────────────────────────────────────────────
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print("PASS: all assertions passed")
 print(f"  - wandb.init() created run '{run_id}' (display: '{run_display}') in project '{PROJECT_NAME}'")
 print(f"  - Config with {len(train_config)} keys stored and verified via GraphQL")
-print(f"  - wandb.log() metrics ingested via file_stream")
-print(f"  - wandb.finish() completed cleanly (run state = finished)")
-print(f"{'='*60}")
+print("  - wandb.log() metrics ingested via file_stream")
+print("  - wandb.finish() completed cleanly (run state = finished)")
+print(f"{'=' * 60}")

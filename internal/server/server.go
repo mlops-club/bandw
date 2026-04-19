@@ -19,7 +19,7 @@ func NewRouter(db *gorm.DB) chi.Router {
 	// Public routes (no auth required).
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
 	// Authenticated routes.

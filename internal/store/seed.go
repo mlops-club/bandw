@@ -22,8 +22,8 @@ func SeedDefaults(db *gorm.DB) error {
 	}
 
 	entity := Entity{
-		Name:   "admin",
-		Type:   "user",
+		Name: "admin",
+		Type: "user",
 	}
 	if err := db.Create(&entity).Error; err != nil {
 		return err
