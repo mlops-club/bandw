@@ -41,14 +41,28 @@ clean:
 # Install all git hook shims (pre-commit, pre-push, commit-msg).
 # Run this once after cloning, or after adding prek to dev deps.
 hooks-install:
-    uv run prek install
+    uv run --project tests/wandb-conformance prek install
 
 # Run every hook against all files — useful for CI, or to validate
 # the repo after changing prek.toml.
 lint:
-    uv run prek run --all-files
+    uv run --project tests/wandb-conformance prek run --all-files
 
 # Bump all hook revs to their latest tags. Review the diff before committing —
 # a broken hook update shouldn't block the whole team.
 hooks-update:
-    uv run prek autoupdate
+    uv run --project tests/wandb-conformance prek autoupdate
+
+# ── CI ──
+
+# Run prek hooks, skipping branch-protection (for CI on PRs to main).
+ci-lint:
+    SKIP=no-commit-to-branch uv run --project tests/wandb-conformance prek run --all-files
+
+# Run the full SDK conformance test suite.
+conformance:
+    ./tests/wandb-conformance/run.sh
+
+# Run conformance tests in CI mode (pass if >= baseline, fail on regression).
+conformance-ci:
+    ./tests/wandb-conformance/run.sh --ci

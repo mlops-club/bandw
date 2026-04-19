@@ -59,7 +59,7 @@ traffic.
 | Telemetry           |  4 / 4  | [`test_telemetry_full.py`](wandb-sdk/tests/system_tests/test_core/test_telemetry_full.py) |
 | Login               |  1 / 5  | [`test_wandb_login.py`](wandb-sdk/tests/system_tests/test_core/test_wandb_login.py) |
 | Time Resolution     |  1 / 1  | [`test_time_resolution.py`](wandb-sdk/tests/system_tests/test_core/test_time_resolution.py) |
-| **Total**           | **127 / 161** | **~20 seconds with `-n auto`** |
+| **Total**           | **129 / 161** | **~20 seconds with `-n auto`** |
 
 > **Merge gate:** Do not merge code that causes regressions in this suite.
 > Run `./tests/wandb-conformance/run.sh` before merging.

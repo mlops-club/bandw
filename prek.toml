@@ -332,7 +332,7 @@ env = { CGO_ENABLED = "1" }
 id = "python-smoke-check"
 name = "python smoke tests (syntax check)"
 language = "system"
-entry = "bash -c 'uv run python -m py_compile tests/smoke/*.py'"
+entry = "bash -c 'uv run --project tests/wandb-conformance python -m py_compile tests/smoke/*.py'"
 pass_filenames = false
 stages = ["pre-push"]
 files = { glob = "tests/**/*.py" }

@@ -14,6 +14,7 @@ os.environ["WANDB_API_KEY"] = "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5"
 os.environ["WANDB_CONSOLE"] = "wrap"
 os.environ["WANDB_SILENT"] = "true"
 
+import wandb
 from sklearn.datasets import load_iris
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -21,8 +22,6 @@ from sklearn.metrics import accuracy_score, f1_score, log_loss
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-
-import wandb
 
 PROJECT = "sklearn-probe"
 ENTITY = "admin"

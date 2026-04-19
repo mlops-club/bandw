@@ -1,0 +1,16 @@
+target-version = "py312"
+line-length = 120
+exclude = ["vendor-sdks", "wandb-sdk"]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # isort (import ordering)
+    "S",   # bandit (security: subprocess injection, assert in prod, etc.)
+    "B",   # bugbear (common pitfalls: mutable default args, except Exception, etc.)
+    "UP",  # pyupgrade (use modern Python syntax)
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"]

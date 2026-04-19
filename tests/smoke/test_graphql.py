@@ -21,7 +21,7 @@ AUTH = ("api", API_KEY)
 
 
 def gql(query: str) -> dict:
-    r = requests.post(GQL, json={"query": query}, auth=AUTH)
+    r = requests.post(GQL, json={"query": query}, auth=AUTH, timeout=30)
     r.raise_for_status()
     return r.json()
 
