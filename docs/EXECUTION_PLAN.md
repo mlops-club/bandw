@@ -78,6 +78,8 @@ Every slice includes Go integration tests that run against real MySQL. Two tiers
 - Real `wandb` Python SDK scripts run against the dev server.
 - These are too slow for rapid iteration (~10s+ per script due to SDK startup).
 - Used as acceptance gates at the end of each slice, not per-edit.
+- `tests/smoke/test_sdk_e2e.py` — runs, config, metrics (Phase 1)
+- `tests/smoke/test_artifacts_e2e.py` — 27-section artifact acceptance test (Phase 5)
 
 ### Tier 3: UI Tests (future, Phase 2+)
 - Browser-based tests (Playwright or similar) against the Svelte frontend.
@@ -988,60 +990,85 @@ run.finish()
 
 Goal: `wandb.log_artifact()` and `wandb.use_artifact()` work.
 
+**Key references:**
+- **Endpoint spec:** `docs/specs/artifact-endpoints.md` — every GraphQL mutation/query, REST endpoint, and DB table
+- **Smoke test:** `tests/smoke/test_artifacts_e2e.py` — 27-section acceptance test covering the full SDK artifact API surface
+- **GraphQL schema:** `docs/graphql-schema.graphql` — authoritative SDL (types, inputs, payloads)
+- **System spec:** `docs/system-spec.md` lines 300-468 (DB schema), lines 548-593 (storage + workflows)
+
 ---
 
 ### Slice 19: Artifact Schema + Tables
 
+**Goal:** Database has all artifact tables; GraphQL schema has all artifact types/inputs/enums.
+
 **Steps:**
-1. Migration `002_artifacts.sql`:
+1. Migration `002_artifacts.sql` — copy tables verbatim from `docs/system-spec.md` lines 300-404:
    - `artifact_types`, `artifact_collections`, `artifacts`
    - `artifact_aliases`, `artifact_manifests`, `artifact_manifest_entries`
    - `artifact_files_stored`, `artifact_usage`
-2. Extend GraphQL schema with all artifact types (from `graphql-schema.graphql`)
+   - `tags`, `artifact_collection_tags`
+   - ALTER statements from lines 464-467 (`direct_url`, `display_name`, `birth_artifact_id`)
+2. Extend GraphQL schema with all artifact types from `graphql-schema.graphql`:
+   - Types: `Artifact`, `ArtifactType`, `ArtifactSequence`, `ArtifactCollection`,
+     `ArtifactManifest`, `ArtifactAlias`, `ArtifactCollectionMembership`, `Tag`
+   - Enums: `ArtifactState`, `ArtifactManifestType`, `ArtifactStorageLayout`,
+     `ArtifactDigestAlgorithm`, `ArtifactCollectionType`, `CompleteMultipartAction`
+   - All input types and payload types (see `artifact-endpoints.md` sections 4.1-4.17)
+3. Create GORM model structs in `internal/store/models.go`
+
+**Tests:** `internal/store/artifact_migrate_test.go` — verify all tables created
 
 ---
 
 ### Slice 20: CreateArtifact + CreateArtifactManifest + CommitArtifact
 
-**Steps:**
-1. Implement `createArtifact` mutation — register artifact with clientID dedup
-2. Implement `createArtifactManifest` — reserve manifest, optionally return upload URL
-3. Implement `createArtifactFiles` — generate pre-signed URLs for artifact files
-4. Implement `completeMultipartUploadArtifact` — finalize multipart uploads
-5. Implement `updateArtifactManifest` — update manifest digest, return upload URL
-6. Implement `commitArtifact` — set artifact state to COMMITTED
-7. Implement `useArtifact` — record lineage (input/output)
-8. Implement `clientIDMapping` query — resolve clientID → serverID
+**Goal:** `run.log_artifact(artifact)` uploads files and commits the artifact.
 
-**Verification:**
+**Steps — implement mutations per `artifact-endpoints.md` section 4:**
+1. `createArtifact` (§4.1) — register artifact with clientID dedup, auto-create type+collection
+2. `createArtifactManifest` (§4.2) — reserve manifest record (initial call with `includeUpload=false`)
+3. `createArtifactFiles` (§4.3) — generate pre-signed upload URLs (single or multipart)
+4. `completeMultipartUploadArtifact` (§4.4) — finalize multipart uploads
+5. `updateArtifactManifest` (§4.5) — finalize manifest digest, return manifest upload URL
+6. `commitArtifact` (§4.6) — set state to COMMITTED
+7. `useArtifact` (§4.7) — record lineage (input/output)
+8. `clientIDMapping` query (§5.1) — resolve clientID → serverID
+
+**Important workflow note (from `system-spec.md` line 579-586):**
+The SDK first calls `createArtifactManifest(includeUpload=false)` to reserve the record,
+then later either calls `updateArtifactManifest` (incremental/patch) or re-calls
+`createArtifactManifest` (full) to get the final manifest upload URL. Both paths must work.
+
+**Verification (smoke test sections 1-4):**
 ```python
-import wandb
-run = wandb.init(project="test")
-artifact = wandb.Artifact("my-dataset", type="dataset")
-artifact.add_file("data.csv")
-run.log_artifact(artifact)
-run.finish()
+uv run python tests/smoke/test_artifacts_e2e.py
+# Sections 1-3 must pass: artifact creation, upload, GraphQL verification
 ```
 
 ---
 
 ### Slice 21: Artifact Queries + Download
 
-**Steps:**
-1. Implement `artifactByID`, `artifactByName` queries
-2. Implement `fetchArtifactManifest` — return manifest download URL
-3. Implement `getArtifactFiles`, `getArtifactFileUrls`, `artifactFileURLsByManifestEntries`
-4. Implement artifact download handlers: `GET /artifacts/...`, `GET /artifactsV2/...`
-5. Implement `runInputArtifacts`, `runOutputArtifacts`
+**Goal:** `run.use_artifact(name)` and `artifact.download()` work.
 
-**Verification:**
+**Steps — implement queries per `artifact-endpoints.md` section 5:**
+1. Top-level: `artifact(id)`, `artifactCollection(id)` queries (§5.1)
+2. Project-scoped: `project.artifact(name)`, `project.artifactType(name)`,
+   `project.artifactTypes`, `project.artifactCollection(name)`,
+   `project.artifactCollections` (§5.2)
+3. Run-scoped: `run.inputArtifacts`, `run.outputArtifacts` (§5.4)
+4. Artifact field resolvers: `currentManifest`, `files`, `filesByManifestEntries`,
+   `aliases`, `tags`, `createdBy`, `usedBy`, `artifactMemberships` (§5.5)
+5. REST download handlers per `artifact-endpoints.md` section 6:
+   - `GET /artifacts/{entity}/{digest}` (V1 layout, §6.2)
+   - `GET /artifactsV2/...` (V2 layout, §6.3)
+   - `PUT /upload/{storagePath}` proxy (§6.4)
+
+**Verification (smoke test sections 4-5):**
 ```python
-import wandb
-run = wandb.init(project="test")
-artifact = run.use_artifact("my-dataset:latest")
-path = artifact.download()
-# Should download the artifact files
-run.finish()
+uv run python tests/smoke/test_artifacts_e2e.py
+# Sections 4-5 must pass: download, content verification, get/get_entry/files
 ```
 
 ---
@@ -1061,11 +1088,29 @@ run.finish()
 
 ### Slice 23: Artifact Aliases + Tags + Updates
 
-**Steps:**
-1. Implement `addAliases`, `deleteAliases`
-2. Implement `updateArtifact` (metadata, description, TTL)
-3. Implement `createArtifactCollectionTagAssignments`, `deleteArtifactCollectionTagAssignments`
-4. Implement `deleteArtifact`, `deleteArtifactSequence`
+**Goal:** Alias management, metadata updates, TTL, tags, and deletion work.
+
+**Steps — implement mutations per `artifact-endpoints.md` sections 4.8-4.17:**
+1. `addAliases` / `deleteAliases` (§4.9)
+2. `updateArtifact` (§4.8) — metadata, description, aliases, TTL
+3. `createArtifactCollectionTagAssignments` / `deleteArtifactCollectionTagAssignments` (§4.17)
+4. `deleteArtifact` (§4.12), `deleteArtifactSequence` / `deleteArtifactPortfolio` (§4.13)
+5. `updateArtifactSequence` / `updateArtifactPortfolio` (§4.14)
+6. `moveArtifactSequence` (§4.15)
+7. `createArtifactType` (§4.16) — idempotent type creation
+
+**Verification (smoke test sections 6-13, 22-24):**
+```python
+uv run python tests/smoke/test_artifacts_e2e.py
+# Sections 6-13 must pass: versioning, aliases, tags, metadata, TTL, refs,
+# incremental, lineage. Sections 22-24: deletion, properties, collection ops.
+```
+
+**Follow-up items from spec review (to verify during implementation):**
+- Exact `enableDigestDeduplication` behavior (smoke test section 25 covers this)
+- Exact `"latest"` alias auto-assignment semantics
+- TTL removal: null vs 0 behavior
+- `usedBy` and `artifactMemberships` — schema has no pagination args but SDK may expect them
 
 ---
 
@@ -1118,12 +1163,28 @@ Goal: Create reports with embedded charts.
 
 ### Slice 28: Registry (Model Registry)
 
+**Goal:** `run.link_artifact()` links artifacts into registry portfolios.
+
 **Steps:**
-1. Implement `linkArtifact`, `unlinkArtifact`
-2. Implement registry queries: `fetchRegistries`, `fetchRegistry`, `registryCollections`, `registryVersions`
-3. Implement registry mutations: `upsertModel` (registry), `deleteModel`, `renameProject`
-4. Implement registry members: `createProjectMembers`, `deleteProjectMembers`, role updates
-5. Frontend — registry UI
+1. Migration: registry tables from `system-spec.md` lines 406-447
+   (`registries`, `registry_allowed_types`, `registry_members`,
+    `registry_team_members`, `registry_linked_artifacts`)
+2. Implement `linkArtifact` (§4.10 in `artifact-endpoints.md`) and
+   `unlinkArtifact` (§4.11)
+3. Implement registry queries: `fetchRegistries`, `fetchRegistry`,
+   `registryCollections`, `registryVersions`
+4. Implement registry mutations: `upsertModel`, `deleteModel`, `renameProject`
+5. Implement registry members: `createProjectMembers`, `deleteProjectMembers`, role updates
+6. Frontend — registry UI
+
+**Note:** The SDK uses registry paths like `wandb-registry-{REGISTRY_NAME}/{COLLECTION_NAME}`.
+See smoke test section 14 for the exact link_artifact call pattern.
+
+**Verification (smoke test section 14):**
+```python
+uv run python tests/smoke/test_artifacts_e2e.py
+# Section 14 must pass: artifact linking to registry portfolio
+```
 
 ### Slice 29: OIDC / SSO
 
@@ -1297,6 +1358,6 @@ graph TD
 | 2 | 8-12 | See runs + charts + logs in browser | Project, Run, History, Logs queries |
 | 3 | 13-15 | Multi-run workspace comparison | Multi-run history queries, filters |
 | 4 | 16-18 | File upload, resume, stop | CreateRunFiles, RunResumeStatus, RunStoppedStatus |
-| 5 | 19-23 | Full artifact lifecycle | 15+ artifact mutations/queries |
+| 5 | 19-23 | Full artifact lifecycle (`docs/specs/artifact-endpoints.md`) | 21 mutations, 15+ queries, 3 REST endpoints |
 | 6 | 24-26 | Reports with embedded charts | Reports CRUD (custom, not from SDK) |
 | 7 | 27-30 | Registry, OIDC, teams | Registry + team mutations |

@@ -15,22 +15,25 @@ type RunResolver struct {
 	db  *gorm.DB
 }
 
-func (r *RunResolver) ID() gql.ID            { return gql.ID(r.run.ID) }
-func (r *RunResolver) Name() string           { return r.run.Name }
-func (r *RunResolver) DisplayName() *string   { return strPtr(r.run.DisplayName) }
-func (r *RunResolver) Description() *string   { return strPtr(r.run.Description) }
-func (r *RunResolver) Notes() *string         { return strPtr(r.run.Notes) }
-func (r *RunResolver) SweepName() *string     { return strPtr(r.run.SweepName) }
-func (r *RunResolver) State() *string         { return strPtr(r.run.State) }
-func (r *RunResolver) Group() *string         { return strPtr(r.run.GroupName) }
-func (r *RunResolver) JobType() *string       { return strPtr(r.run.JobType) }
-func (r *RunResolver) Commit() *string        { return strPtr(r.run.GitCommit) }
-func (r *RunResolver) Host() *string          { return strPtr(r.run.Host) }
-func (r *RunResolver) Stopped() *bool         { b := r.run.Stopped; return &b }
-func (r *RunResolver) HistoryLineCount() *int32 { v := int32(r.run.HistoryLineCount); return &v }
-func (r *RunResolver) LogLineCount() *int32    { v := int32(r.run.LogLineCount); return &v }
-func (r *RunResolver) EventsLineCount() *int32 { v := int32(r.run.EventsLineCount); return &v }
-func (r *RunResolver) ReadOnly() *bool         { return nil }
+// ToRun implements the ArtifactCreator union resolution for graph-gophers.
+func (r *RunResolver) ToRun() (*RunResolver, bool) { return r, true }
+
+func (r *RunResolver) ID() gql.ID               { return gql.ID(r.run.ID) }
+func (r *RunResolver) Name() string             { return r.run.Name }
+func (r *RunResolver) DisplayName() *string     { return strPtr(r.run.DisplayName) }
+func (r *RunResolver) Description() *string     { return strPtr(r.run.Description) }
+func (r *RunResolver) Notes() *string           { return strPtr(r.run.Notes) }
+func (r *RunResolver) SweepName() *string       { return strPtr(r.run.SweepName) }
+func (r *RunResolver) State() *string           { return strPtr(r.run.State) }
+func (r *RunResolver) Group() *string           { return strPtr(r.run.GroupName) }
+func (r *RunResolver) JobType() *string         { return strPtr(r.run.JobType) }
+func (r *RunResolver) Commit() *string          { return strPtr(r.run.GitCommit) }
+func (r *RunResolver) Host() *string            { return strPtr(r.run.Host) }
+func (r *RunResolver) Stopped() *bool           { b := r.run.Stopped; return &b }
+func (r *RunResolver) HistoryLineCount() *int32 { v := safeInt32(r.run.HistoryLineCount); return &v }
+func (r *RunResolver) LogLineCount() *int32     { v := safeInt32(r.run.LogLineCount); return &v }
+func (r *RunResolver) EventsLineCount() *int32  { v := safeInt32(r.run.EventsLineCount); return &v }
+func (r *RunResolver) ReadOnly() *bool          { return nil }
 
 func (r *RunResolver) Config() *JSONString {
 	s := string(r.run.Config)
@@ -192,6 +195,40 @@ func (r *RunResolver) LogLines(args struct {
 	}
 
 	return &LogLineConnectionResolver{edges: edges, totalCount: int32(total)}, nil
+}
+
+func (r *RunResolver) InputArtifacts(args struct {
+	After *string
+	First *int32
+}) (*ArtifactConnectionResolver, error) {
+	arts, err := store.GetArtifactsByRunUsage(r.db, r.run.ID, "input")
+	if err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactEdgeResolver, len(arts))
+	for i := range arts {
+		edges[i] = &ArtifactEdgeResolver{
+			node: &ArtifactResolver{artifact: &arts[i], db: r.db},
+		}
+	}
+	return &ArtifactConnectionResolver{edges: edges}, nil
+}
+
+func (r *RunResolver) OutputArtifacts(args struct {
+	After *string
+	First *int32
+}) (*ArtifactConnectionResolver, error) {
+	arts, err := store.GetArtifactsByRunUsage(r.db, r.run.ID, "output")
+	if err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactEdgeResolver, len(arts))
+	for i := range arts {
+		edges[i] = &ArtifactEdgeResolver{
+			node: &ArtifactResolver{artifact: &arts[i], db: r.db},
+		}
+	}
+	return &ArtifactConnectionResolver{edges: edges}, nil
 }
 
 func timeToDateTime(t time.Time) *DateTime {

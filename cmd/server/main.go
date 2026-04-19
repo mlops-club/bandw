@@ -11,8 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"fmt"
+
 	"github.com/mlops-club/bandw/internal/config"
 	"github.com/mlops-club/bandw/internal/server"
+	"github.com/mlops-club/bandw/internal/storage"
 	"github.com/mlops-club/bandw/internal/store"
 )
 
@@ -26,7 +29,7 @@ func main() {
 	// Create parent directories for SQLite file if needed.
 	if dialect == "sqlite" && dsn != ":memory:" {
 		dir := filepath.Dir(dsn)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			log.Fatalf("failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -55,11 +58,27 @@ func main() {
 		log.Printf("no frontend build at %s — skipping static file serving", frontendDir)
 	}
 
-	router := server.NewRouter(db, staticFS)
+	// Set up local file storage for artifacts.
+	storageDir := os.Getenv("BANDW_STORAGE_DIR")
+	if storageDir == "" {
+		storageDir = "./data/storage"
+	}
+	baseURL := fmt.Sprintf("http://localhost:%s", cfg.Port)
+	if v := os.Getenv("BANDW_BASE_URL"); v != "" {
+		baseURL = v
+	}
+	localStorage, err := storage.NewLocalStorage(storageDir, baseURL)
+	if err != nil {
+		log.Fatalf("failed to create local storage: %v", err)
+	}
+	log.Printf("storage: dir=%s baseURL=%s", storageDir, baseURL) //#nosec G706 -- log output, not user-facing
+
+	router := server.NewRouterWithStorage(db, localStorage, staticFS)
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: router,
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Graceful shutdown

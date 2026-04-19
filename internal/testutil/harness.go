@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/mlops-club/bandw/internal/server"
+	"github.com/mlops-club/bandw/internal/storage"
 	"github.com/mlops-club/bandw/internal/store"
 	"github.com/tidwall/gjson"
 	"gorm.io/gorm"
@@ -19,6 +20,7 @@ type Harness struct {
 	BaseURL string
 	DB      *gorm.DB
 	APIKey  string
+	Storage *storage.LocalStorage
 	srv     *httptest.Server
 }
 
@@ -37,15 +39,29 @@ func NewHarness(t *testing.T) *Harness {
 		t.Fatalf("failed to seed defaults: %v", err)
 	}
 
-	router := server.NewRouter(db)
+	// Create a temp directory for file storage.
+	storageDir := t.TempDir()
+
+	// We need to create the server first to get the URL, but storage needs the URL.
+	// Use a placeholder URL first, then update after server starts.
+	localStorage, err := storage.NewLocalStorage(storageDir, "http://placeholder")
+	if err != nil {
+		t.Fatalf("failed to create local storage: %v", err)
+	}
+
+	router := server.NewRouterWithStorage(db, localStorage)
 	srv := httptest.NewServer(router)
+
+	// Now update the BaseURL on the storage so upload/download URLs are correct.
+	localStorage.BaseURL = srv.URL
 
 	t.Cleanup(func() { srv.Close() })
 
 	return &Harness{
 		BaseURL: srv.URL,
 		DB:      db,
-		APIKey:  "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5",
+		APIKey:  "1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5", //#nosec G101 -- test-only API key for local dev server
+		Storage: localStorage,
 		srv:     srv,
 	}
 }
@@ -109,7 +125,7 @@ func (h *Harness) PostFileStream(path, body string) *http.Response {
 	if err != nil {
 		panic("PostFileStream request failed: " + err.Error())
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp
 }
 
@@ -161,4 +177,29 @@ func (h *Harness) SeedHistoryViaFileStream(entityName, projectName, runName stri
 	if resp.StatusCode != 200 {
 		panic("SeedHistoryViaFileStream: unexpected status " + resp.Status)
 	}
+}
+
+// PutFile uploads file content to the given URL with authentication.
+func (h *Harness) PutFile(url string, content []byte) *http.Response {
+	req, _ := http.NewRequest("PUT", url, bytes.NewReader(content))
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.SetBasicAuth("api", h.APIKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic("PutFile request failed: " + err.Error())
+	}
+	_ = resp.Body.Close()
+	return resp
+}
+
+// GetFile downloads file content from the given URL.
+func (h *Harness) GetFile(url string) ([]byte, int) {
+	req, _ := http.NewRequest("GET", url, nil) //#nosec G107 -- test helper, URL is controlled
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic("GetFile request failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return body, resp.StatusCode
 }

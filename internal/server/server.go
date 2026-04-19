@@ -9,27 +9,42 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/mlops-club/bandw/internal/filestream"
 	graphqlhandler "github.com/mlops-club/bandw/internal/graphql"
+	"github.com/mlops-club/bandw/internal/storage"
 	"gorm.io/gorm"
 )
 
-// NewRouter builds the chi router with all routes and middleware.
+// NewRouter builds the chi router with all routes and middleware (no storage).
+func NewRouter(db *gorm.DB, staticFS ...fs.FS) chi.Router {
+	return NewRouterWithStorage(db, nil, staticFS...)
+}
+
+// NewRouterWithStorage builds the chi router with file storage support.
 // staticFS is optional — if non-nil, static files are served as a catch-all
 // with SPA fallback (serves index.html for non-file paths).
-func NewRouter(db *gorm.DB, staticFS ...fs.FS) chi.Router {
+func NewRouterWithStorage(db *gorm.DB, store *storage.LocalStorage, staticFS ...fs.FS) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 
 	// Public routes (no auth required).
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+
+	// Storage routes (upload requires auth, download can be public for pre-signed URL compat).
+	if store != nil {
+		r.Group(func(r chi.Router) {
+			r.Use(AuthMiddleware(db))
+			r.Put("/upload/*", store.UploadHandler())
+		})
+		r.Get("/storage/*", store.DownloadHandler())
+	}
 
 	// Authenticated routes.
 	r.Group(func(r chi.Router) {
 		r.Use(AuthMiddleware(db))
 
-		r.Post("/graphql", graphqlhandler.NewHandler(db).ServeHTTP)
+		r.Post("/graphql", graphqlhandler.NewHandlerWithStorage(db, store).ServeHTTP)
 		r.Post("/files/{entity}/{project}/{run}/file_stream", filestream.Handler(db))
 	})
 

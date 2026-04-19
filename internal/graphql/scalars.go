@@ -94,3 +94,4 @@ func (j *JSONScalar) UnmarshalGraphQL(input interface{}) error {
 func (j JSONScalar) MarshalJSON() ([]byte, error) {
 	return json.Marshal(j.Value)
 }
+

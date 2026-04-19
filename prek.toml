@@ -1,0 +1,338 @@
+# prek.toml — Git hook configuration for bandw
+#
+# We use prek (not pre-commit) because it's a single Rust binary with no Python
+# dependency, which matters since this is primarily a Go project. Its killer
+# feature is the `priority` system: hooks at the same priority level run
+# concurrently, so a full pre-commit pass finishes in the time of the slowest
+# hook per tier rather than the sum of all hooks.
+#
+# Priority execution model:
+#
+#   Priority 0 (concurrent)       Priority 10 (concurrent)      Priority 20
+#   ─────────────────────────     ──────────────────────────     ──────────
+#   trailing-whitespace     ─┐    go-fmt              ─┐        svelte-check
+#   end-of-file-fixer        │    go-vet               │
+#   check-yaml               │    go-mod-tidy          │
+#   check-json               │    gosec                │
+#   check-toml               ├─►  ruff                 ├─►
+#   detect-private-key       │    ruff-format           │
+#   check-merge-conflict     │    prettier              │
+#   block-data-files          │    eslint               │
+#   no-commit-to-branch      │
+#   gitleaks                 ─┘                        ─┘
+#
+# Why this order:
+#   - Priority 0: Sub-second checks that catch the most common mistakes.
+#     If a file has merge conflict markers or a private key, there's no
+#     point spending time linting it. Secrets scanning (gitleaks) is also
+#     here because it's fast and a secret leak is the highest-severity
+#     issue we can catch.
+#   - Priority 10: Language-specific linters and formatters. These take
+#     a few seconds each but are independent of each other, so they all
+#     run in parallel. Go and Python checks don't touch the same files,
+#     and frontend checks are scoped to frontend/.
+#   - Priority 20: Type checking (svelte-check) is the slowest operation
+#     and depends on files that prettier/eslint may have just auto-fixed,
+#     so it runs last.
+#
+# Installation:
+#   uv add --dev prek
+#   uv run prek install          # installs all hook types listed below
+
+minimum_prek_version = "0.3.0"
+
+# Install shims for all three hook stages in one `prek install` invocation.
+default_install_hook_types = ["pre-commit", "pre-push", "commit-msg"]
+default_stages = ["pre-commit"]
+
+# The vendor-sdks/ and wandb-sdk/ directories are git submodules containing
+# third-party code (aim, clearml, mlflow, etc.) that we reference for protocol
+# research. We never want hooks running against code we don't own.
+exclude = { glob = "{vendor-sdks/**,wandb-sdk/**}" }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Builtin hooks — Rust-native, offline, zero setup
+#
+# These are a prek-unique feature: they're compiled into the prek binary itself,
+# so they need no network fetch, no virtualenv, and no language runtime. They
+# run in microseconds. Using `repo = "builtin"` instead of cloning
+# pre-commit/pre-commit-hooks saves ~3s on first install and works offline.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace", priority = 0 },
+  { id = "end-of-file-fixer", priority = 0 },
+  { id = "check-yaml", priority = 0 },
+  { id = "check-json", priority = 0 },
+  { id = "check-toml", priority = 0 },
+  { id = "check-merge-conflict", priority = 0 },
+  { id = "check-case-conflict", priority = 0 },
+  { id = "check-symlinks", priority = 0 },
+  { id = "detect-private-key", priority = 0 },
+  { id = "mixed-line-ending", priority = 0 },
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Branch protection
+#
+# All changes to main should arrive via PR merge. Direct commits to main bypass
+# code review and CI. This hook makes that impossible locally. CI merge commits
+# are unaffected because GitHub Actions doesn't run git hooks.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v5.0.0"
+hooks = [
+  { id = "no-commit-to-branch", args = ["--branch", "main"], priority = 0 },
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Secrets detection
+#
+# A leaked API key or credential in git history is effectively permanent — even
+# force-pushing a fix leaves the secret in reflog and any forks/clones. gitleaks
+# uses an extensive pattern library (AWS keys, GCP tokens, Slack webhooks, etc.)
+# to catch these before they enter history. detect-private-key (above) covers
+# PEM/SSH keys; gitleaks covers everything else.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/gitleaks/gitleaks"
+rev = "v8.24.3"
+hooks = [
+  { id = "gitleaks", priority = 0 },
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Large file guard
+#
+# A single 50MB model checkpoint committed by accident bloats the repo forever
+# (git doesn't garbage-collect reachable objects). The 500KB cap catches
+# accidental data commits while still allowing reasonable source files.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v5.0.0"
+hooks = [
+  { id = "check-added-large-files", args = ["--maxkb=500"], priority = 0 },
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Data and model file blockers
+#
+# Even *small* data/model files don't belong in git — they change frequently,
+# aren't diffable, and signal a workflow problem (should be using DVC, git-lfs,
+# or an artifact store like the one we're building). The `language = "fail"`
+# trick makes prek reject the file with a human-readable message rather than
+# trying to "fix" anything.
+#
+# The wandb/ blocker exists because `wandb.init()` creates a local wandb/
+# directory with run metadata. The .gitignore should catch this, but a hook
+# is defense-in-depth in case someone adds a new test directory without
+# updating .gitignore.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "block-data-files"
+name = "block data/model files"
+language = "fail"
+entry = """
+Data, model, and archive files must not be committed to git.
+They are not diffable, bloat history permanently, and should live in
+an artifact store (DVC, git-lfs, or bandw's own artifact system).
+"""
+# Covers: tabular (csv/tsv/parquet/arrow/feather/avro), scientific (h5/hdf5/nc/zarr),
+# serialized (pkl/pickle/joblib/npy/npz), ML models (pt/pth/onnx/ckpt/safetensors/pb/tflite),
+# databases (sqlite/db), and archives (tar/zip/gz/bz2/xz/7z/rar).
+files = '(?x)\.(csv|tsv|parquet|arrow|feather|avro|h5|hdf5|nc|zarr|pkl|pickle|joblib|npy|npz|pt|pth|onnx|ckpt|safetensors|bin|pb|tflite|sqlite3?|db|tar|tar\.gz|tar\.bz2|tar\.xz|zip|gz|bz2|xz|7z|rar)$'
+priority = 0
+
+[[repos.hooks]]
+id = "block-wandb-artifacts"
+name = "block wandb run directories"
+language = "fail"
+entry = "wandb/ directories contain local run data and must not be committed."
+# Uses prek's glob syntax (not regex) — more readable for path patterns.
+files = { glob = "wandb/**" }
+priority = 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Go — formatting, vetting, security
+#
+# go fmt is not optional in Go — the entire ecosystem assumes canonical
+# formatting. go vet catches real bugs (printf mismatches, unreachable code,
+# struct tag errors) that the compiler doesn't flag. go mod tidy prevents
+# go.mod/go.sum drift that breaks other developers' builds.
+#
+# gosec scans for OWASP-style vulnerabilities: SQL injection, hardcoded
+# credentials, weak crypto, etc. This matters because bandw handles auth
+# tokens and user data.
+#
+# The `env` key is a prek-unique feature — it sets per-hook environment
+# variables without needing a bash wrapper script. CGO_ENABLED=1 is required
+# because we use SQLite (via cgo) for testing.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/dnephin/pre-commit-golang"
+rev = "v0.5.1"
+hooks = [
+  { id = "go-fmt", priority = 10 },
+  { id = "go-mod-tidy", priority = 10 },
+]
+
+# go-vet and gosec are local hooks because the pre-commit-golang repo's go-vet
+# passes individual filenames, but `go vet` expects package paths. In a worktree
+# or monorepo layout this causes spurious "no Go files in ..." errors.
+# gosec also doesn't publish a .pre-commit-hooks.yaml manifest at all.
+# Install gosec with: go install github.com/securego/gosec/v2/cmd/gosec@latest
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "go-vet"
+name = "go vet"
+language = "system"
+entry = "go"
+args = ["vet", "./..."]
+pass_filenames = false
+files = '\.go$'
+priority = 10
+env = { CGO_ENABLED = "1" }
+
+[[repos.hooks]]
+id = "gosec"
+name = "gosec (Go security scanner)"
+language = "system"
+entry = "gosec"
+args = ["-exclude-dir=vendor-sdks", "-exclude-dir=wandb-sdk", "./..."]
+pass_filenames = false
+files = '\.go$'
+priority = 10
+env = { CGO_ENABLED = "1" }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python — ruff lint + format
+#
+# ruff replaces flake8, isort, black, bandit, and pyupgrade in a single tool.
+# It's written in Rust and runs in milliseconds. The bandit rules (S prefix in
+# pyproject.toml's [tool.ruff.lint] select) catch security issues in the smoke
+# tests (e.g. subprocess injection, assert in production code).
+#
+# --fix lets ruff auto-correct simple issues (unused imports, wrong sort order)
+# so developers don't have to fix lint manually on every commit.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.11.8"
+hooks = [
+  { id = "ruff", args = ["--fix"], priority = 10 },
+  { id = "ruff-format", priority = 10 },
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Frontend — Svelte 5 + TypeScript (ready for when frontend/ lands)
+#
+# These hooks use prek's glob syntax to scope exclusively to frontend/.
+# If no frontend/ directory or matching files exist yet, prek skips them
+# automatically — zero overhead until the frontend is added.
+#
+# prettier handles formatting for .svelte, .ts, .css, .html, and .json.
+# eslint catches logic bugs and enforces Svelte/TS best practices.
+# Both auto-fix so the developer experience mirrors the Go/Python hooks.
+#
+# svelte-check runs at priority 20 (after prettier/eslint) because:
+#   1. It's the slowest frontend operation (~5-10s on a medium project).
+#   2. It type-checks .svelte files, which may have just been reformatted
+#      by prettier — running it on pre-format code wastes time on spurious
+#      errors that disappear after formatting.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/pre-commit/mirrors-prettier"
+rev = "v4.0.0-alpha.8"
+hooks = [
+  { id = "prettier", files = { glob = "frontend/**/*.{ts,js,svelte,css,html,json}" }, priority = 10 },
+]
+
+[[repos]]
+repo = "https://github.com/pre-commit/mirrors-eslint"
+rev = "v9.24.0"
+hooks = [
+  { id = "eslint", files = { glob = "frontend/**/*.{ts,js,svelte}" }, args = ["--fix"], priority = 10 },
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "svelte-check"
+name = "svelte-check"
+language = "system"
+entry = "bash -c 'cd frontend && npx svelte-check --tsconfig ./tsconfig.json'"
+files = { glob = "frontend/**/*.{svelte,ts}" }
+pass_filenames = false
+priority = 20
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Commit message — conventional commits
+#
+# Enforcing conventional commit format (feat:, fix:, refactor:, etc.) makes
+# git log scannable, enables automated changelog generation, and lets CI
+# decide release semantics (e.g. feat → minor bump, fix → patch bump).
+#
+# This runs at the commit-msg stage, which fires after the user writes their
+# message but before the commit is finalized — so a bad message aborts the
+# commit rather than requiring an amend.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "https://github.com/compilerla/conventional-pre-commit"
+rev = "v4.1.0"
+hooks = [
+  { id = "conventional-pre-commit", stages = ["commit-msg"], args = [
+    "feat", "fix", "refactor", "docs", "test", "ci", "chore", "build", "perf",
+  ] },
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-push — heavier checks that are too slow for every commit
+#
+# Running the full Go test suite on every commit adds 10-30s of friction that
+# trains developers to skip hooks entirely. Moving tests to pre-push means
+# they run once before code leaves the machine — a good balance between safety
+# and developer velocity.
+#
+# The Python smoke tests do a syntax check (py_compile) rather than a full run
+# because the real smoke tests require a running server. A syntax check still
+# catches the most common push-breaker: a typo or bad import in test code.
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "go-test"
+name = "go test"
+language = "system"
+entry = "bash -c 'CGO_ENABLED=1 go test ./...'"
+pass_filenames = false
+stages = ["pre-push"]
+env = { CGO_ENABLED = "1" }
+
+[[repos.hooks]]
+id = "python-smoke-check"
+name = "python smoke tests (syntax check)"
+language = "system"
+entry = "bash -c 'uv run python -m py_compile tests/smoke/*.py'"
+pass_filenames = false
+stages = ["pre-push"]
+files = { glob = "tests/**/*.py" }
