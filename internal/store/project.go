@@ -47,3 +47,36 @@ func GetProjectByEntityAndName(db *gorm.DB, entityName, projectName string) (*Pr
 	}
 	return &project, nil
 }
+
+// ListProjects returns all projects for an entity.
+func ListProjects(db *gorm.DB, entityName string) ([]Project, error) {
+	var entity Entity
+	if err := db.Where("name = ?", entityName).First(&entity).Error; err != nil {
+		return nil, err
+	}
+	var projects []Project
+	if err := db.Where("entity_id = ?", entity.ID).Order("created_at DESC").Find(&projects).Error; err != nil {
+		return nil, err
+	}
+	return projects, nil
+}
+
+// CountRuns returns the number of runs in a project.
+func CountRuns(db *gorm.DB, projectID string) (int64, error) {
+	var count int64
+	err := db.Model(&Run{}).Where("project_id = ?", projectID).Count(&count).Error
+	return count, err
+}
+
+// LastRunTime returns the most recent run's created_at for a project.
+func LastRunTime(db *gorm.DB, projectID string) (*Run, error) {
+	var run Run
+	err := db.Where("project_id = ?", projectID).Order("created_at DESC").First(&run).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &run, nil
+}

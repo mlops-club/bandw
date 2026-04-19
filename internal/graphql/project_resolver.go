@@ -41,6 +41,27 @@ func (p *ProjectResolver) Entity() (*EntityResolver, error) {
 	return &EntityResolver{id: entity.ID, name: entity.Name}, nil
 }
 
+// RunCount resolves Project.runCount — the number of runs in this project.
+func (p *ProjectResolver) RunCount() (int32, error) {
+	count, err := store.CountRuns(p.db, p.project.ID)
+	if err != nil {
+		return 0, err
+	}
+	return int32(count), nil
+}
+
+// LastRunAt resolves Project.lastRunAt — the creation time of the most recent run.
+func (p *ProjectResolver) LastRunAt() (*DateTime, error) {
+	run, err := store.LastRunTime(p.db, p.project.ID)
+	if err != nil {
+		return nil, err
+	}
+	if run == nil {
+		return nil, nil
+	}
+	return timeToDateTime(run.CreatedAt), nil
+}
+
 // Bucket resolves Project.bucket(name) — legacy alias for a single run lookup.
 func (p *ProjectResolver) Bucket(args struct {
 	Name      string

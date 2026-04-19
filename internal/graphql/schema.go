@@ -6,12 +6,24 @@ const SchemaString = `
 scalar JSONString
 scalar JSON
 scalar DateTime
+scalar Int64
 
 type Query {
 	viewer: User!
 	serverInfo: ServerInfo!
 	model(name: String, entityName: String): Project
 	project(name: String, entityName: String): Project
+	projects(entityName: String!): ProjectConnection!
+}
+
+type ProjectConnection {
+	edges: [ProjectEdge!]!
+	pageInfo: PageInfo!
+}
+
+type ProjectEdge {
+	node: Project
+	cursor: String
 }
 
 type Mutation {
@@ -103,6 +115,8 @@ type Project {
 	createdAt: DateTime
 	isBenchmark: Boolean
 	readOnly: Boolean
+	runCount: Int!
+	lastRunAt: DateTime
 	bucket(name: String!, missingOk: Boolean): Run
 	run(name: String!): Run
 	runs(first: Int, after: String, order: String): RunConnection!
@@ -144,5 +158,8 @@ type Run {
 	user: User
 	tags: [String!]
 	readOnly: Boolean
+	history(minStep: Int64, maxStep: Int64, samples: Int): [JSONString!]
+	sampledHistory(specs: [JSONString!]!): [JSON]
+	historyKeys: JSON
 }
 `

@@ -127,3 +127,38 @@ func (h *Harness) GraphQL(query string) *GQLResponse {
 	body, _ := io.ReadAll(resp.Body)
 	return &GQLResponse{Body: body}
 }
+
+// GraphQLWithVars sends an authenticated GraphQL POST with variables and returns the parsed response.
+func (h *Harness) GraphQLWithVars(query string, vars map[string]interface{}) *GQLResponse {
+	payload, _ := json.Marshal(map[string]interface{}{
+		"query":     query,
+		"variables": vars,
+	})
+	req, _ := http.NewRequest("POST", h.BaseURL+"/graphql", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth("api", h.APIKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic("GraphQLWithVars request failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return &GQLResponse{Body: body}
+}
+
+// SeedHistoryViaFileStream seeds history rows for a run using the file_stream endpoint.
+// Each row is a map that will be JSON-encoded as a history line.
+func (h *Harness) SeedHistoryViaFileStream(entityName, projectName, runName string, rows []map[string]interface{}) {
+	lines := make([]string, 0, len(rows))
+	for _, row := range rows {
+		b, _ := json.Marshal(row)
+		lines = append(lines, string(b))
+	}
+	linesJSON, _ := json.Marshal(lines)
+	body := `{"files":{"wandb-history.jsonl":{"offset":0,"content":` + string(linesJSON) + `}}}`
+	path := entityName + "/" + projectName + "/" + runName
+	resp := h.PostFileStream(path, body)
+	if resp.StatusCode != 200 {
+		panic("SeedHistoryViaFileStream: unexpected status " + resp.Status)
+	}
+}

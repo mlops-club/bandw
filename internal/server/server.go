@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,7 +13,9 @@ import (
 )
 
 // NewRouter builds the chi router with all routes and middleware.
-func NewRouter(db *gorm.DB) chi.Router {
+// staticFS is optional — if non-nil, static files are served as a catch-all
+// with SPA fallback (serves index.html for non-file paths).
+func NewRouter(db *gorm.DB, staticFS ...fs.FS) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 
@@ -30,5 +33,31 @@ func NewRouter(db *gorm.DB) chi.Router {
 		r.Post("/files/{entity}/{project}/{run}/file_stream", filestream.Handler(db))
 	})
 
+	// Static file serving with SPA fallback.
+	if len(staticFS) > 0 && staticFS[0] != nil {
+		r.NotFound(spaHandler(staticFS[0]))
+	}
+
 	return r
+}
+
+// spaHandler serves static files from the given FS, falling back to index.html
+// for paths that don't match a file (SPA client-side routing).
+func spaHandler(static fs.FS) http.HandlerFunc {
+	fileServer := http.FileServer(http.FS(static))
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Try to open the requested file.
+		path := r.URL.Path
+		if path == "/" {
+			path = "index.html"
+		} else if path[0] == '/' {
+			path = path[1:]
+		}
+		_, err := fs.Stat(static, path)
+		if err != nil {
+			// File not found — serve index.html for SPA routing.
+			r.URL.Path = "/"
+		}
+		fileServer.ServeHTTP(w, r)
+	}
 }

@@ -49,6 +49,25 @@ func (r *Resolver) Project(args struct {
 	return r.resolveProject(args.Name, args.EntityName)
 }
 
+// Projects resolves Query.projects — returns all projects for an entity.
+func (r *Resolver) Projects(args struct {
+	EntityName string
+}) (*ProjectConnectionResolver, error) {
+	projects, err := store.ListProjects(r.db, args.EntityName)
+	if err != nil {
+		return nil, err
+	}
+	edges := make([]*ProjectEdgeResolver, len(projects))
+	for i, p := range projects {
+		proj := p
+		edges[i] = &ProjectEdgeResolver{
+			node:   &ProjectResolver{project: &proj, db: r.db},
+			cursor: proj.ID,
+		}
+	}
+	return &ProjectConnectionResolver{edges: edges}, nil
+}
+
 func (r *Resolver) resolveProject(name, entityName *string) (*ProjectResolver, error) {
 	if name == nil || entityName == nil {
 		return nil, nil
