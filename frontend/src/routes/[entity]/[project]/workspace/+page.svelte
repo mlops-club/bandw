@@ -98,6 +98,7 @@
 	// Panel picker
 	let showPanelPicker = $state(false);
 	let panelPickerCategory = $state('');
+	let selectedPanelType = $state('');
 	let addedPanels: string[] = $state([]);
 
 	// Extract config keys from runs
@@ -398,7 +399,7 @@
 	</div>
 	<button class="toolbar-btn" onclick={() => { showSettings = !showSettings }}>Workspace settings</button>
 	<input type="range" min="0" max="100" value="100" role="slider" aria-label="Step range" class="step-slider" />
-	<button class="toolbar-btn primary" onclick={() => showPanelPicker = !showPanelPicker}>Add panels</button>
+	<button class="toolbar-btn primary" onclick={() => { showPanelPicker = !showPanelPicker; panelPickerCategory = 'charts'; }}>Add panels</button>
 </div>
 
 {#if showPanelPicker}
@@ -411,24 +412,34 @@
 		</div>
 		{#if panelPickerCategory === 'evaluation'}
 			<div class="picker-items">
-				<button class="picker-item" onclick={() => { addedPanels = [...addedPanels, 'parameter-importance']; showPanelPicker = false; panelPickerCategory = ''; }}>Parameter Importance</button>
-				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Confusion Matrix</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'parameter-importance'} onclick={() => selectedPanelType = 'parameter-importance'}>Parameter Importance</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'confusion-matrix'} onclick={() => selectedPanelType = 'confusion-matrix'}>Confusion Matrix</button>
 			</div>
 		{:else if panelPickerCategory === 'charts'}
 			<div class="picker-items">
-				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Line Plot</button>
-				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Bar Chart</button>
-				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Scatter Plot</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'line-plot'} onclick={() => selectedPanelType = 'line-plot'}>Line Plot</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'bar-chart'} onclick={() => selectedPanelType = 'bar-chart'}>Bar Chart</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'scatter-plot'} onclick={() => selectedPanelType = 'scatter-plot'}>Scatter Plot</button>
 			</div>
 		{:else if panelPickerCategory === 'media'}
 			<div class="picker-items">
-				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Image Viewer</button>
-				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Audio Player</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'image-viewer'} onclick={() => selectedPanelType = 'image-viewer'}>Image Viewer</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'audio-player'} onclick={() => selectedPanelType = 'audio-player'}>Audio Player</button>
 			</div>
 		{:else}
 			<p class="picker-hint">Select a category above</p>
 		{/if}
-		<button class="picker-close" onclick={() => { showPanelPicker = false; panelPickerCategory = ''; }}>Close</button>
+		<div class="picker-footer">
+			{#if selectedPanelType}
+				<button class="primary" onclick={() => {
+					addedPanels = [...addedPanels, selectedPanelType];
+					showPanelPicker = false;
+					panelPickerCategory = '';
+					selectedPanelType = '';
+				}}>Apply</button>
+			{/if}
+			<button class="picker-close" onclick={() => { showPanelPicker = false; panelPickerCategory = ''; selectedPanelType = ''; }}>Close</button>
+		</div>
 	</div>
 {/if}
 
@@ -712,6 +723,10 @@
 									{#if showSectionActions[section.name]}
 										<div class="dropdown-menu" role="menu">
 											<button role="menuitem" onclick={() => {
+												showPanelPicker = true;
+												showSectionActions = { ...showSectionActions, [section.name]: false };
+											}}>Add panel</button>
+											<button role="menuitem" onclick={() => {
 												addedPanels = [...addedPanels, `section-${Date.now()}`];
 												showSectionActions = { ...showSectionActions, [section.name]: false };
 											}}>New section above</button>
@@ -889,7 +904,9 @@
 	.picker-category:hover, .picker-category.active { color: #4fc3f7; border-color: #4fc3f7; }
 	.picker-items { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
 	.picker-item { padding: 0.5rem 1rem; background: #0d1117; border: 1px solid #1e2d4a; border-radius: 4px; color: #e0e0e0; cursor: pointer; font-size: 0.85rem; }
-	.picker-item:hover { border-color: #4fc3f7; color: #4fc3f7; }
+	.picker-item:hover, .picker-item.selected { border-color: #4fc3f7; color: #4fc3f7; }
+	.picker-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
+	.picker-footer .primary { padding: 0.4rem 0.8rem; background: #4fc3f7; color: #0a1929; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 	.picker-hint { color: #556677; font-size: 0.85rem; }
 	.picker-close { padding: 0.3rem 0.6rem; background: transparent; border: 1px solid #1e2d4a; border-radius: 3px; color: #8899aa; cursor: pointer; font-size: 0.8rem; }
 	.add-section-btn { display: block; width: 100%; margin-top: 1rem; padding: 0.5rem; background: transparent; border: 1px dashed #1e2d4a; border-radius: 4px; color: #556677; cursor: pointer; font-size: 0.85rem; }
