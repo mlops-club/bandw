@@ -867,8 +867,17 @@
 				{/if}
 			</div>
 			<div class="panel-edit-footer">
-				<button onclick={() => showPanelEdit = false}>Cancel</button>
-				<button class="primary" onclick={() => showPanelEdit = false}>Apply</button>
+				<div class="panel-edit-actions" role="menu">
+					<button role="menuitem" onclick={() => {
+						const keys = allMetricKeys;
+						if (keys.length > 0) deletePanel(keys[0]);
+						showPanelEdit = false;
+					}}>Delete panel</button>
+				</div>
+				<div class="panel-edit-buttons">
+					<button onclick={() => showPanelEdit = false}>Cancel</button>
+					<button class="primary" onclick={() => showPanelEdit = false}>Apply</button>
+				</div>
 			</div>
 		</div>
 	</div>
