@@ -867,7 +867,7 @@
 				{/if}
 			</div>
 			<div class="panel-edit-footer">
-				<div class="panel-edit-actions" role="menu">
+				<div class="panel-edit-actions">
 					<button role="menuitem" onclick={() => {
 						const keys = allMetricKeys;
 						if (keys.length > 0) deletePanel(keys[0]);
