@@ -92,6 +92,9 @@
 	let showSectionActions: Record<string, boolean> = $state({});
 	let deletedSections: Set<string> = $state(new Set());
 
+	// Report creation
+	let showCreateReport = $state(false);
+
 	// Panel picker
 	let showPanelPicker = $state(false);
 	let panelPickerCategory = $state('');
@@ -378,7 +381,10 @@
 	<div class="toolbar-spacer"></div>
 	<input type="text" class="panel-search" placeholder="Search panels with regex" />
 	<div class="workspace-actions-wrapper">
-		<button class="toolbar-btn" onclick={() => showWorkspaceActions = !showWorkspaceActions}>Workspace actions</button>
+		{#if !showCreateReport}
+		<button class="toolbar-btn" onclick={() => showCreateReport = true}>Create report</button>
+	{/if}
+	<button class="toolbar-btn" onclick={() => showWorkspaceActions = !showWorkspaceActions}>Workspace actions</button>
 		{#if showWorkspaceActions}
 			<div class="dropdown-menu" role="menu">
 				{#if !activeViewName}
@@ -466,6 +472,30 @@
 				activeViewName = '';
 				showDeleteConfirm = false;
 			}}>Delete</button>
+		</div>
+	</div>
+{/if}
+
+{#if showCreateReport}
+	<div class="panel-edit-overlay" onclick={() => showCreateReport = false}>
+		<div class="panel-edit-modal" role="dialog" aria-label="Create report" onclick={(e) => e.stopPropagation()}>
+			<div class="panel-edit-header">
+				<h3>Create Report</h3>
+				<button onclick={() => showCreateReport = false}>×</button>
+			</div>
+			<div class="panel-edit-content">
+				<p>Include workspace charts in the report.</p>
+				<label>
+					<input type="checkbox" aria-label="Filter run sets" /> Filter run sets
+				</label>
+			</div>
+			<div class="panel-edit-footer">
+				<button onclick={() => showCreateReport = false}>Cancel</button>
+				<button class="primary" onclick={() => {
+					showCreateReport = false;
+					window.location.href = `/${entity}/${project}/reportlist`;
+				}}>Create report</button>
+			</div>
 		</div>
 	</div>
 {/if}
