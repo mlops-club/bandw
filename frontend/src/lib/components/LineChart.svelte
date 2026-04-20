@@ -38,12 +38,7 @@
 				maintainAspectRatio: false,
 				animation: false,
 				plugins: {
-					title: {
-						display: true,
-						text: title,
-						color: '#a0b0c0',
-						font: { size: 13 }
-					},
+					title: { display: false },
 					tooltip: {
 						mode: 'index',
 						intersect: false
@@ -79,17 +74,26 @@
 	});
 </script>
 
-<div class="chart-container">
-	<canvas bind:this={canvas}></canvas>
+<div class="chart-container" aria-label="{title} chart">
+	<h3 class="chart-title">{title}</h3>
+	<canvas bind:this={canvas} aria-label="{title}"></canvas>
 </div>
 
 <style>
 	.chart-container {
 		position: relative;
-		height: 250px;
+		height: 280px;
 		background: #16213e;
 		border: 1px solid #1e2d4a;
 		border-radius: 6px;
 		padding: 0.75rem;
+	}
+
+	.chart-title {
+		font-size: 0.85rem;
+		color: #a0b0c0;
+		text-align: center;
+		margin: 0 0 0.25rem;
+		font-weight: 600;
 	}
 </style>

@@ -137,6 +137,24 @@ func GetRunByName(db *gorm.DB, projectID, runName string) (*Run, error) {
 	return &run, nil
 }
 
+// GetRunByID finds a run by its database primary key (UUID).
+func GetRunByID(db *gorm.DB, id string) (*Run, error) {
+	var run Run
+	if err := db.Where("id = ?", id).First(&run).Error; err != nil {
+		return nil, err
+	}
+	return &run, nil
+}
+
+// GetProjectByID finds a project by its database primary key.
+func GetProjectByID(db *gorm.DB, id string) (*Project, error) {
+	var p Project
+	if err := db.Where("id = ?", id).First(&p).Error; err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 // GetHistory returns history rows for a run within a step range, paginated by limit.
 // This is pagination (not downsampling) — matches the SDK's HistoryScan which uses samples as pageSize.
 func GetHistory(db *gorm.DB, runID string, minStep, maxStep *int64, limit int) ([]RunHistory, error) {

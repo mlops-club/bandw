@@ -91,8 +91,25 @@ type User {
 	username: String
 	email: String
 	name: String
+	admin: Boolean
 	flags: JSONString
+	deletedAt: DateTime
+	apiKeys: ApiKeyConnection!
 	teams: EntityConnection!
+}
+
+type ApiKeyConnection {
+	edges: [ApiKeyEdge!]!
+}
+
+type ApiKeyEdge {
+	node: ApiKey!
+}
+
+type ApiKey {
+	id: ID!
+	name: String
+	description: String
 }
 
 type EntityConnection {
@@ -172,10 +189,12 @@ type Run {
 	id: ID!
 	name: String!
 	displayName: String
+	projectId: Int
 	description: String
 	notes: String
 	config: JSONString
 	summaryMetrics: JSONString
+	systemMetrics: JSONString
 	sweepName: String
 	state: String
 	group: String

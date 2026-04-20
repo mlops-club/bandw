@@ -37,6 +37,7 @@ export const RUNS_QUERY = gql`
             state
             createdAt
             updatedAt
+            config
             summaryMetrics
             tags
             user {

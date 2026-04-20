@@ -33,6 +33,10 @@
 				<div class="card-value">{projectData.runs.totalCount}</div>
 			</div>
 			<div class="card">
+				<div class="card-label">Contributors</div>
+				<div class="card-value">1</div>
+			</div>
+			<div class="card">
 				<div class="card-label">Project</div>
 				<div class="card-value">{projectData.name}</div>
 			</div>
