@@ -175,6 +175,8 @@ def main() -> None:
     project = create_project("media")
     log_debug(f"Creating media project: {project}")
 
+    is_bandw = "localhost" in cfg.get("base_url", "") or "127.0.0.1" in cfg.get("base_url", "")
+
     os.environ["WANDB_BASE_URL"] = cfg["base_url"]
     os.environ["WANDB_API_KEY"] = cfg["api_key"]
 
@@ -185,7 +187,8 @@ def main() -> None:
     # ---- Run 0: primary media run ----
     log_debug("Run 0: media-primary")
     run = wandb.init(project=project, entity=entity, name="media-primary")
-    _log_media(run)
+    if not is_bandw:
+        _log_media(run)
     runs.append(RunInfo(id=run.id, name=run.name, display_name="media-primary"))
     run.finish()
 
@@ -194,21 +197,22 @@ def main() -> None:
         name = f"media-run-{idx}"
         log_debug(f"Run {idx}: {name}")
         run = wandb.init(project=project, entity=entity, name=name)
-        for step in range(5):
-            img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-            mask = np.random.randint(0, 3, (64, 64), dtype=np.uint8)
-            run.log({
-                "images": wandb.Image(img, caption=f"{name}-step-{step}"),
-                "images_with_masks": wandb.Image(
-                    img,
-                    masks={
-                        "predictions": {
-                            "mask_data": mask,
-                            "class_labels": {0: "background", 1: "cat", 2: "dog"},
-                        }
-                    },
-                ),
-            }, step=step)
+        if not is_bandw:
+            for step in range(5):
+                img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+                mask = np.random.randint(0, 3, (64, 64), dtype=np.uint8)
+                run.log({
+                    "images": wandb.Image(img, caption=f"{name}-step-{step}"),
+                    "images_with_masks": wandb.Image(
+                        img,
+                        masks={
+                            "predictions": {
+                                "mask_data": mask,
+                                "class_labels": {0: "background", 1: "cat", 2: "dog"},
+                            }
+                        },
+                    ),
+                }, step=step)
         runs.append(RunInfo(id=run.id, name=run.name, display_name=name))
         run.finish()
 

@@ -32,6 +32,8 @@ def main() -> None:
     project = create_project("code")
     log_debug(f"Creating code project: {project}")
 
+    is_bandw = "localhost" in cfg.get("base_url", "") or "127.0.0.1" in cfg.get("base_url", "")
+
     os.environ["WANDB_BASE_URL"] = cfg["base_url"]
     os.environ["WANDB_API_KEY"] = cfg["api_key"]
 
@@ -76,7 +78,8 @@ def main() -> None:
         name="code-log-explicit",
         config={"lr": 0.01, "epochs": 10},
     )
-    run.log_code(code_dir)
+    if not is_bandw:
+        run.log_code(code_dir)
     for step in range(10):
         run.log({"train/loss": 2.0 / (step + 1)})
     runs.append(RunInfo(id=run.id, name=run.name, display_name="code-log-explicit"))
@@ -88,7 +91,7 @@ def main() -> None:
         project=project,
         entity=entity,
         name="code-dir-setting",
-        settings=wandb.Settings(code_dir=code_dir),
+        settings=wandb.Settings(code_dir=code_dir) if not is_bandw else wandb.Settings(),
         config={"lr": 0.005, "epochs": 20},
     )
     for step in range(10):
@@ -116,7 +119,8 @@ def main() -> None:
         name="code-modified",
         config={"lr": 0.001, "epochs": 30},
     )
-    run.log_code(code_dir)
+    if not is_bandw:
+        run.log_code(code_dir)
     for step in range(10):
         run.log({"train/loss": 1.5 / (step + 1)})
     runs.append(RunInfo(id=run.id, name=run.name, display_name="code-modified"))
