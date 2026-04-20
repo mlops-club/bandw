@@ -92,6 +92,14 @@
 	let showSectionActions: Record<string, boolean> = $state({});
 	let deletedSections: Set<string> = $state(new Set());
 
+	// Toast notification
+	let toastMessage = $state('');
+
+	function showToast(msg: string) {
+		toastMessage = msg;
+		setTimeout(() => toastMessage = '', 3000);
+	}
+
 	// Report creation
 	let showCreateReport = $state(false);
 
@@ -780,6 +788,7 @@
 																const url = `${window.location.origin}/${entity}/${project}/workspace?panel=${encodeURIComponent(key)}`;
 																try { await navigator.clipboard.writeText(url); } catch {}
 																showPanelMenu = null;
+																showToast('Copied panel URL');
 															}}>Copy panel URL</button>
 															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Share to report</button>
 														</div>
@@ -865,6 +874,10 @@
 	</div>
 {/if}
 
+{#if toastMessage}
+	<div class="toast" role="alert">{toastMessage}</div>
+{/if}
+
 <style>
 	h1 {
 		font-size: 1.5rem;
@@ -913,6 +926,7 @@
 	.picker-close { padding: 0.3rem 0.6rem; background: transparent; border: 1px solid #1e2d4a; border-radius: 3px; color: #8899aa; cursor: pointer; font-size: 0.8rem; }
 	.add-section-btn { display: block; width: 100%; margin-top: 1rem; padding: 0.5rem; background: transparent; border: 1px dashed #1e2d4a; border-radius: 4px; color: #556677; cursor: pointer; font-size: 0.85rem; }
 	.add-section-btn:hover { color: #4fc3f7; border-color: #4fc3f7; }
+	.toast { position: fixed; bottom: 1rem; right: 1rem; background: #16213e; border: 1px solid #4fc3f7; border-radius: 4px; padding: 0.5rem 1rem; color: #e0e0e0; font-size: 0.85rem; z-index: 200; }
 
 	.workspace-toolbar {
 		display: flex;
