@@ -1,0 +1,17 @@
+# Auth state (session cookies, not committed)
+.auth/
+
+# SDK setup manifests (generated per test run)
+**/.manifest.json
+**/.manifest.lock
+
+# Test output
+test-results/
+snapshots/
+screenshots/
+
+# wandb SDK run data
+wandb/
+
+# Node
+node_modules/

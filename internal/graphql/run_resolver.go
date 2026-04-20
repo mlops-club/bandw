@@ -18,16 +18,18 @@ type RunResolver struct {
 // ToRun implements the ArtifactCreator union resolution for graph-gophers.
 func (r *RunResolver) ToRun() (*RunResolver, bool) { return r, true }
 
-func (r *RunResolver) ID() gql.ID               { return gql.ID(r.run.ID) }
-func (r *RunResolver) Name() string             { return r.run.Name }
-func (r *RunResolver) DisplayName() *string     { return strPtr(r.run.DisplayName) }
+func (r *RunResolver) ID() gql.ID           { return gql.ID(r.run.ID) }
+func (r *RunResolver) Name() string         { return r.run.Name }
+func (r *RunResolver) DisplayName() *string { return strPtr(r.run.DisplayName) }
 func (r *RunResolver) ProjectId() *int32 {
 	// wandb SDK expects projectId as an integer — use a hash of the UUID
 	h := int32(0)
 	for _, c := range r.run.ProjectID {
 		h = h*31 + int32(c)
 	}
-	if h < 0 { h = -h }
+	if h < 0 {
+		h = -h
+	}
 	return &h
 }
 func (r *RunResolver) Description() *string     { return strPtr(r.run.Description) }
