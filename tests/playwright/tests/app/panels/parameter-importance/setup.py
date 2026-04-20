@@ -29,7 +29,7 @@ import wandb
 def main() -> None:
     cfg = get_wandb_config()
     entity = cfg["entity"]
-    project = create_project("param-importance")
+    project = create_project("pi")
     log_debug(f"Creating param-importance project: {project}")
 
     os.environ["WANDB_BASE_URL"] = cfg["base_url"]

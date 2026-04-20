@@ -5,6 +5,7 @@
 	import { getColor } from '$lib/utils/colors';
 	import StateBadge from '$lib/components/StateBadge.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import ParameterImportance from '$lib/components/ParameterImportance.svelte';
 
 	const client = getContextClient();
 	const entity = $derived(page.params.entity);
@@ -90,6 +91,35 @@
 	let collapsedSections: Record<string, boolean> = $state({});
 	let showSectionActions: Record<string, boolean> = $state({});
 	let deletedSections: Set<string> = $state(new Set());
+
+	// Panel picker
+	let showPanelPicker = $state(false);
+	let panelPickerCategory = $state('');
+	let addedPanels: string[] = $state([]);
+
+	// Extract config keys from runs
+	const configKeys = $derived.by(() => {
+		const keys = new Set<string>();
+		for (const run of runs) {
+			const config = parseConfig(run.config);
+			for (const k of Object.keys(config)) keys.add(k);
+		}
+		return Array.from(keys);
+	});
+
+	// Extract summary metric keys
+	const summaryMetricKeys = $derived.by(() => {
+		const keys = new Set<string>();
+		for (const run of runs) {
+			try {
+				const summary = JSON.parse(run.summaryMetrics || '{}');
+				for (const k of Object.keys(summary)) {
+					if (!k.startsWith('_')) keys.add(k);
+				}
+			} catch {}
+		}
+		return Array.from(keys);
+	});
 
 	// Panel state
 	let showPanelMenu: string | null = $state(null);
@@ -362,8 +392,39 @@
 	</div>
 	<button class="toolbar-btn" onclick={() => { showSettings = !showSettings }}>Workspace settings</button>
 	<input type="range" min="0" max="100" value="100" role="slider" aria-label="Step range" class="step-slider" />
-	<button class="toolbar-btn primary" onclick={() => {}}>Add panels</button>
+	<button class="toolbar-btn primary" onclick={() => showPanelPicker = !showPanelPicker}>Add panels</button>
 </div>
+
+{#if showPanelPicker}
+	<div class="panel-picker" role="dialog" aria-label="Panel picker">
+		<h3>Choose a visualization</h3>
+		<div class="picker-categories">
+			<button class="picker-category" class:active={panelPickerCategory === 'charts'} onclick={() => panelPickerCategory = 'charts'}>Charts</button>
+			<button class="picker-category" class:active={panelPickerCategory === 'evaluation'} onclick={() => panelPickerCategory = 'evaluation'}>Evaluation</button>
+			<button class="picker-category" class:active={panelPickerCategory === 'media'} onclick={() => panelPickerCategory = 'media'}>Media</button>
+		</div>
+		{#if panelPickerCategory === 'evaluation'}
+			<div class="picker-items">
+				<button class="picker-item" onclick={() => { addedPanels = [...addedPanels, 'parameter-importance']; showPanelPicker = false; panelPickerCategory = ''; }}>Parameter Importance</button>
+				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Confusion Matrix</button>
+			</div>
+		{:else if panelPickerCategory === 'charts'}
+			<div class="picker-items">
+				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Line Plot</button>
+				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Bar Chart</button>
+				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Scatter Plot</button>
+			</div>
+		{:else if panelPickerCategory === 'media'}
+			<div class="picker-items">
+				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Image Viewer</button>
+				<button class="picker-item" onclick={() => { showPanelPicker = false; }}>Audio Player</button>
+			</div>
+		{:else}
+			<p class="picker-hint">Select a category above</p>
+		{/if}
+		<button class="picker-close" onclick={() => { showPanelPicker = false; panelPickerCategory = ''; }}>Close</button>
+	</div>
+{/if}
 
 {#if showSaveViewDialog}
 	<div class="save-view-dialog" role="dialog" aria-label="Save view">
@@ -656,7 +717,7 @@
 										<div class="chart-wrapper">
 											<div class="chart-actions">
 												<div class="panel-menu-wrapper">
-													<button class="chart-btn" onclick={() => { showPanelMenu = showPanelMenu === key ? null : key }}>Edit panel</button>
+													<button class="chart-btn" aria-label="Edit panel" onclick={() => { showPanelMenu = showPanelMenu === key ? null : key }}>⋯</button>
 													{#if showPanelMenu === key}
 														<div class="dropdown-menu panel-dropdown" role="menu">
 															<button role="menuitem" onclick={() => { showPanelEdit = true; showPanelMenu = null; }}>Edit settings</button>
@@ -675,6 +736,12 @@
 					</section>
 				{/each}
 			{/if}
+
+			{#each addedPanels as panelType}
+				{#if panelType === 'parameter-importance'}
+					<ParameterImportance {runs} />
+				{/if}
+			{/each}
 		</div>
 	</div>
 {/if}
@@ -761,6 +828,17 @@
 	.toolbar-spacer { flex: 1; }
 	.step-slider-label { display: flex; align-items: center; gap: 0.3rem; color: #8899aa; font-size: 0.8rem; }
 	.step-slider { width: 80px; }
+
+	.panel-picker { background: #16213e; border: 1px solid #1e2d4a; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+	.panel-picker h3 { font-size: 1rem; color: #e0e0e0; margin: 0 0 0.75rem; }
+	.picker-categories { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+	.picker-category { padding: 0.4rem 0.8rem; background: transparent; border: 1px solid #1e2d4a; border-radius: 4px; color: #8899aa; cursor: pointer; font-size: 0.85rem; }
+	.picker-category:hover, .picker-category.active { color: #4fc3f7; border-color: #4fc3f7; }
+	.picker-items { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+	.picker-item { padding: 0.5rem 1rem; background: #0d1117; border: 1px solid #1e2d4a; border-radius: 4px; color: #e0e0e0; cursor: pointer; font-size: 0.85rem; }
+	.picker-item:hover { border-color: #4fc3f7; color: #4fc3f7; }
+	.picker-hint { color: #556677; font-size: 0.85rem; }
+	.picker-close { padding: 0.3rem 0.6rem; background: transparent; border: 1px solid #1e2d4a; border-radius: 3px; color: #8899aa; cursor: pointer; font-size: 0.8rem; }
 
 	.workspace-toolbar {
 		display: flex;
