@@ -767,8 +767,8 @@
 											<div class="chart-actions">
 												<button class="chart-btn" aria-label="View full screen" onclick={() => {}}>⛶</button>
 												<div class="panel-menu-wrapper">
-													<button class="chart-btn" aria-label="Edit panel" onclick={() => { showPanelMenu = showPanelMenu === key ? null : key }}>⋯</button>
-												<button class="chart-btn panel-actions-btn" aria-label="More panel actions" onclick={() => { showPanelMenu = showPanelMenu === key ? null : key }}>⋮</button>
+												<button class="chart-btn panel-actions-btn" aria-label="Panel menu" onclick={() => { showPanelMenu = showPanelMenu === key ? null : key }}>⋮</button>
+													<button class="chart-btn" aria-label="Edit panel" onclick={() => showPanelEdit = true}>⋯</button>
 													{#if showPanelMenu === key}
 														<div class="dropdown-menu panel-dropdown" role="menu">
 															<button role="menuitem" onclick={() => { showPanelEdit = true; showPanelMenu = null; }}>Edit settings</button>
