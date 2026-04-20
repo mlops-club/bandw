@@ -758,7 +758,13 @@
 														<div class="dropdown-menu panel-dropdown" role="menu">
 															<button role="menuitem" onclick={() => { showPanelEdit = true; showPanelMenu = null; }}>Edit settings</button>
 															<button role="menuitem" onclick={() => deletePanel(key)}>Delete panel</button>
-															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Full-screen</button>
+															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>View full screen</button>
+															<button role="menuitem" onclick={async () => {
+																const url = `${window.location.origin}/${entity}/${project}/workspace?panel=${encodeURIComponent(key)}`;
+																try { await navigator.clipboard.writeText(url); } catch {}
+																showPanelMenu = null;
+															}}>Copy panel URL</button>
+															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Share to report</button>
 														</div>
 													{/if}
 												</div>
