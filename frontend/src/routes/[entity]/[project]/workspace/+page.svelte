@@ -773,6 +773,8 @@
 														<div class="dropdown-menu panel-dropdown" role="menu">
 															<button role="menuitem" onclick={() => { showPanelEdit = true; showPanelMenu = null; }}>Edit settings</button>
 															<button role="menuitem" onclick={() => deletePanel(key)}>Delete panel</button>
+															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Duplicate panel</button>
+															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Move to section</button>
 															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>View full screen</button>
 															<button role="menuitem" onclick={async () => {
 																const url = `${window.location.origin}/${entity}/${project}/workspace?panel=${encodeURIComponent(key)}`;
