@@ -712,6 +712,10 @@
 									{#if showSectionActions[section.name]}
 										<div class="dropdown-menu" role="menu">
 											<button role="menuitem" onclick={() => {
+												addedPanels = [...addedPanels, `section-${Date.now()}`];
+												showSectionActions = { ...showSectionActions, [section.name]: false };
+											}}>New section above</button>
+											<button role="menuitem" onclick={() => {
 												const next = new Set(deletedSections);
 												next.add(section.name);
 												deletedSections = next;
@@ -770,8 +774,19 @@
 			{#each addedPanels as panelType}
 				{#if panelType === 'parameter-importance'}
 					<ParameterImportance {runs} />
+				{:else if panelType.startsWith('section-')}
+					<section aria-label="New section">
+						<div class="section-header">
+							<h2>New Section</h2>
+							<div class="section-controls">
+								<button class="section-btn">Section actions</button>
+								<button class="section-btn">Section settings</button>
+							</div>
+						</div>
+					</section>
 				{/if}
 			{/each}
+			<button class="add-section-btn" onclick={() => addedPanels = [...addedPanels, `section-${Date.now()}`]}>Add section</button>
 		</div>
 	</div>
 {/if}
@@ -869,6 +884,8 @@
 	.picker-item:hover { border-color: #4fc3f7; color: #4fc3f7; }
 	.picker-hint { color: #556677; font-size: 0.85rem; }
 	.picker-close { padding: 0.3rem 0.6rem; background: transparent; border: 1px solid #1e2d4a; border-radius: 3px; color: #8899aa; cursor: pointer; font-size: 0.8rem; }
+	.add-section-btn { display: block; width: 100%; margin-top: 1rem; padding: 0.5rem; background: transparent; border: 1px dashed #1e2d4a; border-radius: 4px; color: #556677; cursor: pointer; font-size: 0.85rem; }
+	.add-section-btn:hover { color: #4fc3f7; border-color: #4fc3f7; }
 
 	.workspace-toolbar {
 		display: flex;
