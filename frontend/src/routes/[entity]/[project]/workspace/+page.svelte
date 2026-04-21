@@ -417,11 +417,26 @@
 	<div class="panel-picker" role="dialog" aria-label="Panel picker">
 		<h3>Choose a visualization</h3>
 		<div class="picker-categories">
+			<button class="picker-category" class:active={panelPickerCategory === 'quick-add'} onclick={() => panelPickerCategory = 'quick-add'}>Quick add</button>
 			<button class="picker-category" class:active={panelPickerCategory === 'charts'} onclick={() => panelPickerCategory = 'charts'}>Charts</button>
 			<button class="picker-category" class:active={panelPickerCategory === 'evaluation'} onclick={() => panelPickerCategory = 'evaluation'}>Evaluation</button>
 			<button class="picker-category" class:active={panelPickerCategory === 'media'} onclick={() => panelPickerCategory = 'media'}>Media</button>
 		</div>
-		{#if panelPickerCategory === 'evaluation'}
+		{#if panelPickerCategory === 'quick-add'}
+			<div class="picker-items quick-add-list">
+				{#each allMetricKeys as key}
+					<label class="quick-add-item">
+						<input type="checkbox" checked={!deletedPanels.has(key)} aria-checked={!deletedPanels.has(key)} onchange={() => {
+							const next = new Set(deletedPanels);
+							if (next.has(key)) next.delete(key); else next.add(key);
+							deletedPanels = next;
+						}} />
+						{key}
+					</label>
+				{/each}
+				<button class="picker-item" onclick={() => { deletedPanels = new Set(); }}>Add all</button>
+			</div>
+		{:else if panelPickerCategory === 'evaluation'}
 			<div class="picker-items">
 				<button class="picker-item" class:selected={selectedPanelType === 'parameter-importance'} onclick={() => selectedPanelType = 'parameter-importance'}>Parameter Importance</button>
 				<button class="picker-item" class:selected={selectedPanelType === 'confusion-matrix'} onclick={() => selectedPanelType = 'confusion-matrix'}>Confusion Matrix</button>
@@ -950,6 +965,8 @@
 	.picker-items { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
 	.picker-item { padding: 0.5rem 1rem; background: #0d1117; border: 1px solid #1e2d4a; border-radius: 4px; color: #e0e0e0; cursor: pointer; font-size: 0.85rem; }
 	.picker-item:hover, .picker-item.selected { border-color: #4fc3f7; color: #4fc3f7; }
+	.quick-add-list { flex-direction: column; }
+	.quick-add-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; color: #e0e0e0; font-size: 0.85rem; cursor: pointer; }
 	.picker-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
 	.picker-footer .primary { padding: 0.4rem 0.8rem; background: #4fc3f7; color: #0a1929; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
 	.picker-hint { color: #556677; font-size: 0.85rem; }
