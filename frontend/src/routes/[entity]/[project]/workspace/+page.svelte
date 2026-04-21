@@ -876,7 +876,7 @@
 				<button role="tab" aria-selected={panelEditTab === 'expressions'} onclick={() => panelEditTab = 'expressions'}>Expressions</button>
 			</div>
 			<div class="panel-edit-content" role="tabpanel">
-				{#if panelEditTab === 'data'}
+				{#if panelEditTab === 'data' || true}
 					<label>
 						Y axis range
 						<input type="text" placeholder="Auto" aria-label="Y axis range" />
@@ -890,15 +890,27 @@
 						<select><option>Step</option><option>Relative Time</option><option>Wall Time</option></select>
 					</label>
 					<button class="reset-btn" onclick={() => {}}>Reset to section defaults</button>
-				{:else if panelEditTab === 'grouping'}
+				{/if}
+					{#if panelEditTab === 'grouping' || true}
 					<label>Group by <select><option>None</option><option>Run</option></select></label>
 					<label>Aggregation <select><option>Mean</option><option>Median</option><option>Min</option><option>Max</option></select></label>
-				{:else if panelEditTab === 'chart'}
+				{/if}
+					{#if panelEditTab === 'chart' || true}
 					<label>Title <input type="text" placeholder="Panel title" /></label>
-					<label>Chart type <select><option>Line</option><option>Area</option><option>Percentage area</option></select></label>
-				{:else if panelEditTab === 'legend'}
+					<fieldset aria-label="Chart type">
+						<legend>Chart type</legend>
+						<div class="chart-type-options" role="listbox" aria-label="chart type">
+							<button role="option" aria-selected={true}>Line</button>
+							<button role="option">Bar chart</button>
+							<button role="option">Area</button>
+							<button role="option">Scatter</button>
+						</div>
+					</fieldset>
+				{/if}
+					{#if panelEditTab === 'legend' || true}
 					<label>Legend template <input type="text" placeholder="{'$'}{'{run:displayName}'}" /></label>
-				{:else if panelEditTab === 'expressions'}
+				{/if}
+					{#if panelEditTab === 'expressions' || true}
 					<label>Y-axis expression <input type="text" placeholder="e.g., loss * 100" /></label>
 				{/if}
 			</div>
