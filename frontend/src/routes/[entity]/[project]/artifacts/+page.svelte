@@ -72,9 +72,9 @@
 				{#if selectedType === artType.name}
 					<div class="tree-children">
 						{#each artType.artifactCollections?.edges?.map((e: any) => e.node) ?? [] as coll}
-							<a href="/{entity}/{project}/artifacts" class="tree-child" role="link" aria-label={coll.name} onclick|preventDefault={() => { selectedCollection = coll.name; selectedArtifact = coll; }}>
+							<button class="tree-child" role="link" aria-label={coll.name} onclick={() => { selectedCollection = coll.name; selectedArtifact = coll; }}>
 								{coll.name}
-							</a>
+							</button>
 						{/each}
 					</div>
 				{/if}
@@ -88,11 +88,11 @@
 			<p class="artifact-type">Type: {selectedType}</p>
 
 			<nav class="artifact-tabs">
-				<a href="/{entity}/{project}/artifacts" role="link" aria-label="Files" class:active={activeTab === 'files'} onclick|preventDefault={() => activeTab = 'files'}>Files</a>
-				<a href="/{entity}/{project}/artifacts" role="link" aria-label="Metadata" class:active={activeTab === 'metadata'} onclick|preventDefault={() => activeTab = 'metadata'}>Metadata</a>
-				<a href="/{entity}/{project}/artifacts" role="link" aria-label="Usage" class:active={activeTab === 'usage'} onclick|preventDefault={() => activeTab = 'usage'}>Usage</a>
-				<a href="/{entity}/{project}/artifacts" role="link" aria-label="Versions" class:active={activeTab === 'versions'} onclick|preventDefault={() => activeTab = 'versions'}>Versions</a>
-				<a href="/{entity}/{project}/artifacts" role="link" aria-label="Lineage" class:active={activeTab === 'lineage'} onclick|preventDefault={() => activeTab = 'lineage'}>Lineage</a>
+				<button role="link" aria-label="Files" class:active={activeTab === 'files'} onclick={() => activeTab = 'files'}>Files</button>
+				<button role="link" aria-label="Metadata" class:active={activeTab === 'metadata'} onclick={() => activeTab = 'metadata'}>Metadata</button>
+				<button role="link" aria-label="Usage" class:active={activeTab === 'usage'} onclick={() => activeTab = 'usage'}>Usage</button>
+				<button role="link" aria-label="Versions" class:active={activeTab === 'versions'} onclick={() => activeTab = 'versions'}>Versions</button>
+				<button role="link" aria-label="Lineage" class:active={activeTab === 'lineage'} onclick={() => activeTab = 'lineage'}>Lineage</button>
 			</nav>
 
 			<div class="tab-content">
