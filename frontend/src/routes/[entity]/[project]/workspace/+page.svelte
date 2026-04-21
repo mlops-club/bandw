@@ -340,7 +340,7 @@
 			const slashIdx = sectionOrg === 'first'
 				? chart.key.indexOf('/')
 				: chart.key.lastIndexOf('/');
-			const prefix = slashIdx > 0 ? chart.key.substring(0, slashIdx) : 'Other';
+			const prefix = slashIdx > 0 ? chart.key.substring(0, slashIdx) : 'Charts';
 			if (!groups[prefix]) groups[prefix] = [];
 			groups[prefix].push(chart);
 		}

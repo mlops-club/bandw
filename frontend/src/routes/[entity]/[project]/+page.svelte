@@ -6,7 +6,7 @@
 	const project = $derived(page.params.project);
 
 	$effect(() => {
-		goto(`/${entity}/${project}/workspace`, { replaceState: true });
+		goto(`/${entity}/${project}/overview`, { replaceState: true });
 	});
 </script>
 
