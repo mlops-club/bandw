@@ -91,6 +91,9 @@
 	let collapsedSections: Record<string, boolean> = $state({});
 	let showSectionActions: Record<string, boolean> = $state({});
 	let deletedSections: Set<string> = $state(new Set());
+	let renamingSection: string | null = $state(null);
+	let renameValue = $state('');
+	let sectionNames: Record<string, string> = $state({});
 
 	// Toast notification
 	let toastMessage = $state('');
@@ -388,7 +391,7 @@
 	<button class="toolbar-btn" aria-label="Undo last action" onclick={undo} disabled={undoStack.length === 0}>Undo</button>
 	<button class="toolbar-btn" aria-label="Redo last action" onclick={redo} disabled={redoStack.length === 0}>Redo</button>
 	<div class="toolbar-spacer"></div>
-	<input type="text" class="panel-search" placeholder="Search panels with regex" />
+	<input type="search" class="panel-search" placeholder="Search panels with regex" role="searchbox" />
 	<div class="workspace-actions-wrapper">
 		{#if !showCreateReport}
 		<button class="toolbar-btn" onclick={() => showCreateReport = true}>Create report</button>
@@ -727,9 +730,18 @@
 				</p>
 			{:else}
 				{#each chartSections.filter(s => !deletedSections.has(s.name)) as section}
-					<section aria-label="{section.name}">
+					<section aria-label="{sectionNames[section.name] || section.name}">
 						<div class="section-header">
-							<h2>{section.name} <span class="count">({section.charts.length})</span></h2>
+							{#if renamingSection === section.name}
+								<input type="text" class="section-rename-input" role="textbox" bind:value={renameValue} onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										sectionNames = { ...sectionNames, [section.name]: renameValue };
+										renamingSection = null;
+									}
+								}} />
+							{:else}
+								<h2>{sectionNames[section.name] || section.name} <span class="count">({section.charts.length})</span></h2>
+							{/if}
 							<div class="section-controls">
 								<button class="section-btn" onclick={() => { collapsedSections = { ...collapsedSections, [section.name]: !collapsedSections[section.name] } }}>
 									{collapsedSections[section.name] ? `Expand ${section.name} section` : `Collapse ${section.name} section`}
@@ -754,7 +766,7 @@
 												showSectionActions = { ...showSectionActions, [section.name]: false };
 												pushUndo({ type: 'delete-section', data: section.name });
 											}}>Delete section</button>
-											<button role="menuitem" onclick={() => { showSectionActions = { ...showSectionActions, [section.name]: false } }}>Rename section</button>
+											<button role="menuitem" onclick={() => { renamingSection = section.name; renameValue = sectionNames[section.name] || section.name; showSectionActions = { ...showSectionActions, [section.name]: false } }}>Rename section</button>
 										</div>
 									{/if}
 								</div>
@@ -944,6 +956,7 @@
 	.picker-close { padding: 0.3rem 0.6rem; background: transparent; border: 1px solid #1e2d4a; border-radius: 3px; color: #8899aa; cursor: pointer; font-size: 0.8rem; }
 	.add-section-btn { display: block; width: 100%; margin-top: 1rem; padding: 0.5rem; background: transparent; border: 1px dashed #1e2d4a; border-radius: 4px; color: #556677; cursor: pointer; font-size: 0.85rem; }
 	.add-section-btn:hover { color: #4fc3f7; border-color: #4fc3f7; }
+	.section-rename-input { padding: 0.3rem 0.5rem; background: #0d1117; border: 1px solid #4fc3f7; border-radius: 3px; color: #e0e0e0; font-size: 1rem; width: 200px; }
 	.toast { position: fixed; bottom: 1rem; right: 1rem; background: #16213e; border: 1px solid #4fc3f7; border-radius: 4px; padding: 0.5rem 1rem; color: #e0e0e0; font-size: 0.85rem; z-index: 200; }
 
 	.workspace-toolbar {
