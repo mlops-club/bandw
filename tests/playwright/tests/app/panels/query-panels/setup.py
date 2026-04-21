@@ -88,8 +88,8 @@ def main() -> None:
     # ---- Artifact for artifactVersion() query tests ----
     log_debug("Creating query-test artifact")
     run = wandb.init(project=project, entity=entity, name="artifact-creator")
+    artifact = wandb.Artifact("query-test-data", type="dataset")
     if not is_bandw:
-        artifact = wandb.Artifact("query-test-data", type="dataset")
         artifact_table = wandb.Table(
             columns=["id", "value", "category"],
             data=[
@@ -101,11 +101,10 @@ def main() -> None:
             ],
         )
         artifact.add(artifact_table, "data_table")
-        run.log_artifact(artifact)
+    run.log_artifact(artifact)
     runs.append(RunInfo(id=run.id, name=run.name, display_name="artifact-creator"))
     run.finish()
-    if not is_bandw:
-        artifacts.append(ArtifactInfo(name="query-test-data", type="dataset", version="v0"))
+    artifacts.append(ArtifactInfo(name="query-test-data", type="dataset", version="v0"))
 
     manifest = Manifest(project=project, entity=entity, runs=runs, artifacts=artifacts)
     output_manifest(manifest)
