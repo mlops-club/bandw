@@ -139,6 +139,12 @@
 	// Panel state
 	let showPanelMenu: string | null = $state(null);
 	let deletedPanels: Set<string> = $state(new Set());
+	let duplicatedPanels: string[] = $state([]);
+
+	function duplicatePanel(key: string) {
+		duplicatedPanels = [...duplicatedPanels, key];
+		showPanelMenu = null;
+	}
 
 	function deletePanel(key: string) {
 		const next = new Set(deletedPanels);
@@ -817,7 +823,7 @@
 														<div class="dropdown-menu panel-dropdown" role="menu">
 															<button role="menuitem" onclick={() => { showPanelEdit = true; showPanelMenu = null; }}>Edit settings</button>
 															<button role="menuitem" onclick={() => deletePanel(key)}>Delete panel</button>
-															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Duplicate panel</button>
+															<button role="menuitem" onclick={() => duplicatePanel(key)}>Duplicate panel</button>
 															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Move to section</button>
 															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>View full screen</button>
 															<button role="menuitem" onclick={async () => {
@@ -835,6 +841,18 @@
 										</div>
 									{/if}
 								{/each}
+
+							{#each duplicatedPanels.filter(k => section.charts.some(c => c.key === k)) as dupKey}
+								{@const dupChart = section.charts.find(c => c.key === dupKey)}
+								{#if dupChart && dupChart.series.length > 0}
+									<div class="chart-wrapper">
+										<div class="chart-actions">
+											<button class="chart-btn" aria-label="Edit panel" onclick={() => showPanelEdit = true}>E</button>
+										</div>
+										<LineChart title={dupChart.key + ' (copy)'} series={dupChart.series} />
+									</div>
+								{/if}
+							{/each}
 							</div>
 						{/if}
 					</section>
