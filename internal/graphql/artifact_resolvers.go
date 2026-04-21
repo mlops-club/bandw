@@ -648,3 +648,5 @@ type ArtifactTypeEdgeResolver struct {
 
 func (e *ArtifactTypeEdgeResolver) Node() *ArtifactTypeResolver { return e.node }
 func (e *ArtifactTypeEdgeResolver) Cursor() *string             { return nil }
+
+// (ArtifactTypeResolver is defined above at line 220)
