@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import ProjectNav from '$lib/components/ProjectNav.svelte';
 	const entity = $derived(page.params.entity ?? '');
 	const project = $derived(page.params.project ?? '');
 
@@ -9,11 +8,17 @@
 	let reports: { title: string; content: string }[] = $state([]);
 	let editingContent = $state('');
 	let showSlashMenu = $state(false);
+	let insertedBlocks: { type: string; content: string }[] = $state([]);
+
+	function autofocusAction(node: HTMLElement) {
+		node.focus();
+	}
 
 	function createReport() {
 		showEditor = true;
 		reportTitle = '';
 		editingContent = '';
+		insertedBlocks = [];
 	}
 
 	function handleEditorKeydown(e: KeyboardEvent) {
@@ -26,13 +31,20 @@
 
 	function insertBlock(type: string) {
 		showSlashMenu = false;
-		if (type === 'heading2') {
-			// Will be handled by the contenteditable
+		editingContent = editingContent.replace(/\/$/, '');
+		if (type === 'lineplot') {
+			insertedBlocks = [...insertedBlocks, { type: 'panel', content: 'Line Plot' }];
+		} else if (type === 'panelgrid') {
+			insertedBlocks = [...insertedBlocks, { type: 'panel-grid', content: 'Panel Grid' }];
+		} else if (type === 'code') {
+			insertedBlocks = [...insertedBlocks, { type: 'code', content: '' }];
+		} else if (type === 'markdown') {
+			insertedBlocks = [...insertedBlocks, { type: 'markdown', content: '' }];
+		} else if (type === 'heading2') {
+			insertedBlocks = [...insertedBlocks, { type: 'heading', content: '' }];
 		}
 	}
 </script>
-
-<ProjectNav {entity} {project} />
 
 <h1>Reports</h1>
 
@@ -59,13 +71,45 @@
 				<button onclick={() => showEditor = false}>Cancel</button>
 			</div>
 		</div>
+		<!-- svelte-ignore a11y_autofocus -->
 		<textarea
 			class="editor-content"
 			aria-label="report content"
+			autofocus
 			placeholder="Type / for commands..."
 			onkeydown={handleEditorKeydown}
+			oninput={() => {
+				if (editingContent.endsWith('/')) showSlashMenu = true;
+				else showSlashMenu = false;
+			}}
 			bind:value={editingContent}
 		></textarea>
+		{#each insertedBlocks as block}
+			{#if block.type === 'panel'}
+				<div class="inserted-block">
+					<h4>{block.content}</h4>
+					<div class="chart-placeholder">[Visualization]</div>
+				</div>
+			{:else if block.type === 'panel-grid'}
+				<div class="inserted-block grid-block">
+					<h4>Panel Grid</h4>
+					<div class="panel-placeholder">[Panel Grid with run data]</div>
+					<button onclick={() => {}}>Freeze run set</button>
+				</div>
+			{:else if block.type === 'code'}
+				<div class="report-code-block inserted-block">
+					<select><option>Python</option><option>JavaScript</option></select>
+					<textarea class="code-editor" placeholder="Enter code..."></textarea>
+				</div>
+			{:else if block.type === 'markdown'}
+				<div class="report-markdown-block inserted-block">
+					<textarea class="markdown-editor" placeholder="Enter markdown..."></textarea>
+				</div>
+			{:else if block.type === 'heading'}
+				{@const idx = insertedBlocks.indexOf(block)}
+				<input type="text" class="report-heading-input inserted-block" role="heading" aria-level="2" placeholder="Heading" use:autofocusAction bind:value={insertedBlocks[idx].content} />
+			{/if}
+		{/each}
 		{#if showSlashMenu}
 			<div class="slash-menu" role="listbox">
 				<button role="option" onclick={() => insertBlock('lineplot')}>Line Plot</button>
@@ -95,4 +139,9 @@
 	.slash-menu { background: #16213e; border: 1px solid #1e2d4a; border-radius: 4px; padding: 0.25rem; margin-top: 0.5rem; }
 	.slash-menu button { display: block; width: 100%; text-align: left; padding: 0.4rem 0.6rem; background: none; border: none; color: #e0e0e0; cursor: pointer; font-size: 0.85rem; border-radius: 3px; }
 	.slash-menu button:hover { background: rgba(79,195,247,0.1); }
+	.inserted-block { background: #0d1117; border: 1px solid #1e2d4a; border-radius: 4px; padding: 0.75rem; margin: 0.5rem 0; }
+	.inserted-block h4 { font-size: 0.9rem; color: #e0e0e0; margin: 0 0 0.5rem; }
+	.panel-placeholder { color: #556677; font-size: 0.85rem; padding: 1rem; text-align: center; border: 1px dashed #1e2d4a; border-radius: 3px; }
+	.code-editor, .markdown-editor { width: 100%; min-height: 100px; padding: 0.5rem; background: #16213e; border: 1px solid #1e2d4a; color: #e0e0e0; font-family: monospace; font-size: 0.85rem; border-radius: 3px; resize: vertical; }
+	.report-heading-input { width: 100%; padding: 0.5rem; color: #e0e0e0; font-size: 1.3rem; font-weight: bold; background: transparent; border: none; border-bottom: 2px solid #1e2d4a; outline: none; }
 </style>
