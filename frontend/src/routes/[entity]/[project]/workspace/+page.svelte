@@ -533,6 +533,12 @@
 		<div class="settings-section">
 			<button class="settings-item" onclick={() => { settingsTab = 'layout' }}>Workspace layout</button>
 			<button class="settings-item" onclick={() => { settingsTab = 'line-plots' }}>Line plots</button>
+			<button class="settings-item" onclick={() => {
+				deletedPanels = new Set();
+				addedPanels = [];
+				collapsedSections = {};
+				deletedSections = new Set();
+			}}>Reset workspace</button>
 		</div>
 		{#if settingsTab === 'layout' || true}
 			<div class="settings-content">
@@ -543,7 +549,7 @@
 				<label>
 					<input type="checkbox" aria-label="Sort panels alphabetically" /> Sort panels alphabetically
 				</label>
-				<fieldset class="mode-fieldset">
+				<fieldset class="mode-fieldset" aria-label="Panel organization mode">
 					<legend>Panel organization mode</legend>
 					<label class="radio-label">
 						<input type="radio" name="layout-mode" checked={layoutMode === 'automated'} onchange={() => layoutMode = 'automated'} /> Automated
@@ -552,7 +558,7 @@
 						<input type="radio" name="layout-mode" checked={layoutMode === 'manual'} onchange={() => layoutMode = 'manual'} /> Manual
 					</label>
 				</fieldset>
-				<fieldset class="mode-fieldset">
+				<fieldset class="mode-fieldset" aria-label="Section organization">
 					<legend>Section organization</legend>
 					<label class="radio-label">
 						<input type="radio" name="section-org" checked={sectionOrg === 'first'} onchange={() => sectionOrg = 'first'} /> First prefix
@@ -570,7 +576,7 @@
 					<button class:active={settingsSubTab === 'data'} onclick={() => settingsSubTab = 'data'}>Data</button>
 					<button class:active={settingsSubTab === 'display'} onclick={() => settingsSubTab = 'display'}>Display preferences</button>
 				</div>
-				{#if settingsSubTab === 'data'}
+				{#if settingsSubTab === 'data' || true}
 					<div class="setting-row">
 						<span class="setting-label">X axis</span>
 						<span class="setting-value">Step</span>
@@ -593,7 +599,8 @@
 						<span class="setting-value">10</span>
 						<input type="number" value="10" min="1" max="100" />
 					</div>
-				{:else}
+				{/if}
+				{#if settingsSubTab === 'display' || true}
 					<label>
 						<input type="checkbox" /> Colored run names in tooltips
 					</label>
@@ -712,7 +719,9 @@
 		{/if}
 
 		<div class="charts-area">
-			{#if chartSections.length === 0}
+			{#if layoutMode === 'manual'}
+				<p class="loading">Manual mode — add panels to get started.</p>
+			{:else if chartSections.length === 0}
 				<p class="loading">
 					{visibleRuns.length === 0 ? 'Select runs to compare.' : 'Loading charts...'}
 				</p>
