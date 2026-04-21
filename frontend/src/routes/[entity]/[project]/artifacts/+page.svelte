@@ -65,20 +65,18 @@
 	<aside class="artifact-sidebar">
 		<h2>Artifact Types</h2>
 		{#each artifactTypes as artType}
-			<div class="tree-item" role="treeitem" aria-label={artType.name}>
-				<button class="tree-btn" class:active={selectedType === artType.name} onclick={() => { selectedType = artType.name; selectedCollection = ''; selectedArtifact = null; }}>
-					{artType.name}
-				</button>
-				{#if selectedType === artType.name}
-					<div class="tree-children">
-						{#each artType.artifactCollections?.edges?.map((e: any) => e.node) ?? [] as coll}
-							<button class="tree-child" role="link" aria-label={coll.name} onclick={() => { selectedCollection = coll.name; selectedArtifact = coll; }}>
-								{coll.name}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
+			<button class="tree-item" role="treeitem" aria-label={artType.name} class:active={selectedType === artType.name} onclick={() => { selectedType = artType.name; selectedCollection = ''; selectedArtifact = null; }}>
+				{artType.name}
+			</button>
+			{#if selectedType === artType.name}
+				<div class="tree-children" role="group">
+					{#each artType.artifactCollections?.edges?.map((e: any) => e.node) ?? [] as coll}
+						<a href="/{entity}/{project}/artifacts/{artType.name}/{coll.name}" class="tree-child" role="link" aria-label={coll.name} onclick={(e) => { e.preventDefault(); selectedCollection = coll.name; selectedArtifact = coll; }}>
+							{coll.name}
+						</a>
+					{/each}
+				</div>
+			{/if}
 		{/each}
 	</aside>
 
