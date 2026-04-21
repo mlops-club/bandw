@@ -41,7 +41,6 @@ type Mutation {
 	completeMultipartUploadArtifact(input: CompleteMultipartUploadArtifactInput!): CompleteMultipartUploadArtifactPayload
 	updateArtifactManifest(input: UpdateArtifactManifestInput!): UpdateArtifactManifestPayload
 	commitArtifact(input: CommitArtifactInput!): CommitArtifactPayload
-	createRunFiles(input: CreateRunFilesInput!): CreateRunFilesPayload
 	useArtifact(input: UseArtifactInput!): UseArtifactPayload
 	updateArtifact(input: UpdateArtifactInput!): UpdateArtifactPayload
 	addAliases(input: AddAliasesInput!): AddAliasesPayload
@@ -475,7 +474,7 @@ input CreateArtifactInput {
 	runName: String
 	artifactTypeName: String!
 	artifactCollectionName: String!
-	artifactCollectionNames: [String!]
+	artifactCollectionNames: [String!]!
 	digest: String!
 	digestAlgorithm: ArtifactDigestAlgorithm!
 	description: String
@@ -540,22 +539,6 @@ input UpdateArtifactManifestInput {
 
 input CommitArtifactInput {
 	artifactID: ID!
-}
-
-input CreateRunFilesInput {
-	runName: String!
-	entityName: String!
-	projectName: String!
-	files: [RunFileInput!]!
-}
-
-input RunFileInput {
-	fileName: String!
-	contentType: String
-}
-
-type CreateRunFilesPayload {
-	files: FileConnection
 }
 
 input UseArtifactInput {

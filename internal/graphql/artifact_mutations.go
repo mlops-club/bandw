@@ -51,7 +51,7 @@ type createArtifactInput struct {
 	RunName                   *string
 	ArtifactTypeName          string
 	ArtifactCollectionName    string
-	ArtifactCollectionNames   *[]string
+	ArtifactCollectionNames   []string
 	Digest                    string
 	DigestAlgorithm           string
 	Description               *string
@@ -660,29 +660,4 @@ type notImplementedError struct {
 
 func (e *notImplementedError) Error() string {
 	return e.mutation + " is not yet implemented"
-}
-
-// ─── CreateRunFiles (stub) ─────────────────────────────────────
-
-type createRunFilesInput struct {
-	RunName     string
-	EntityName  string
-	ProjectName string
-	Files       []runFileInput
-}
-
-type runFileInput struct {
-	FileName    string
-	ContentType *string
-}
-
-type createRunFilesPayloadResolver struct{}
-
-func (r *createRunFilesPayloadResolver) Files() *FileConnectionResolver {
-	return &FileConnectionResolver{edges: []*FileEdgeResolver{}}
-}
-
-func (r *Resolver) CreateRunFiles(args struct{ Input createRunFilesInput }) (*createRunFilesPayloadResolver, error) {
-	// Stub: accept the mutation but don't persist files yet.
-	return &createRunFilesPayloadResolver{}, nil
 }
