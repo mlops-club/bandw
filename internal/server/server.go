@@ -31,13 +31,11 @@ func NewRouterWithStorage(db *gorm.DB, store *storage.LocalStorage, staticFS ...
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
-	// Storage routes (upload requires auth, download can be public for pre-signed URL compat).
+	// Storage routes (no auth — SDK treats upload URLs as pre-signed).
 	if store != nil {
-		r.Group(func(r chi.Router) {
-			r.Use(AuthMiddleware(db))
-			r.Put("/upload/*", store.UploadHandler())
-		})
+		r.Put("/upload/*", store.UploadHandler())
 		r.Get("/storage/*", store.DownloadHandler())
+		r.Head("/storage/*", store.DownloadHandler())
 	}
 
 	// Authenticated routes.

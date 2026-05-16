@@ -33,18 +33,16 @@ func (r *ArtifactResolver) Metadata() *JSONString {
 }
 
 func (r *ArtifactResolver) Size() *Int64Scalar {
-	if r.artifact.Size == 0 {
-		return nil
-	}
 	v := Int64Scalar(r.artifact.Size)
 	return &v
 }
 
 func (r *ArtifactResolver) TtlDurationSeconds() *Int64Scalar {
-	if r.artifact.TtlDurationSeconds == nil {
-		return nil
+	var val int64
+	if r.artifact.TtlDurationSeconds != nil {
+		val = *r.artifact.TtlDurationSeconds
 	}
-	v := Int64Scalar(*r.artifact.TtlDurationSeconds)
+	v := Int64Scalar(val)
 	return &v
 }
 
@@ -351,7 +349,21 @@ func (r *ArtifactCollectionResolver) Aliases(args struct {
 	After *string
 	First *int32
 }) (*ArtifactAliasConnectionResolver, error) {
-	return &ArtifactAliasConnectionResolver{}, nil
+	q := r.db.Where("collection_id = ?", r.coll.ID)
+	if args.First != nil {
+		q = q.Limit(int(*args.First))
+	}
+	var aliases []store.ArtifactAlias
+	if err := q.Find(&aliases).Error; err != nil {
+		return nil, err
+	}
+	edges := make([]*ArtifactAliasEdgeResolver, len(aliases))
+	for i := range aliases {
+		edges[i] = &ArtifactAliasEdgeResolver{
+			node: &ArtifactAliasResolver{alias: &aliases[i], db: r.db},
+		}
+	}
+	return &ArtifactAliasConnectionResolver{edges: edges}, nil
 }
 
 func (r *ArtifactCollectionResolver) Artifacts(args struct {
@@ -498,7 +510,10 @@ func (r *FileResolver) UploadUrl() *string {
 	}
 	return strPtr(r.file.UploadURL)
 }
-func (r *FileResolver) UploadHeaders() *[]string                          { return nil }
+func (r *FileResolver) UploadHeaders() *[]string {
+	empty := []string{}
+	return &empty
+}
 func (r *FileResolver) UploadMultipartUrls() *UploadMultipartUrlsResolver { return nil }
 func (r *FileResolver) StoragePath() *string {
 	if r.file == nil {
@@ -519,10 +534,19 @@ func (r *FileResolver) Md5() *string {
 	}
 	return strPtr(r.file.MD5)
 }
-func (r *FileResolver) Digest() *string                      { return nil }
-func (r *FileResolver) Mimetype() *string                    { return nil }
-func (r *FileResolver) UpdatedAt() *DateTime                 { return nil }
-func (r *FileResolver) Artifact() (*ArtifactResolver, error) { return nil, nil }
+func (r *FileResolver) Digest() *string      { return nil }
+func (r *FileResolver) Mimetype() *string    { return nil }
+func (r *FileResolver) UpdatedAt() *DateTime { return nil }
+func (r *FileResolver) Artifact() (*ArtifactResolver, error) {
+	if r.file == nil || r.file.ArtifactID == "" {
+		return nil, nil
+	}
+	var art store.Artifact
+	if err := r.db.First(&art, "id = ?", r.file.ArtifactID).Error; err != nil {
+		return nil, nil
+	}
+	return &ArtifactResolver{artifact: &art, db: r.db}, nil
+}
 
 // ─── UploadMultipartUrlsResolver ─────────────────────────────────
 
@@ -587,14 +611,18 @@ type ArtifactCollectionEdgeResolver struct {
 func (e *ArtifactCollectionEdgeResolver) Node() *ArtifactCollectionResolver { return e.node }
 func (e *ArtifactCollectionEdgeResolver) Cursor() *string                   { return nil }
 
-type ArtifactAliasConnectionResolver struct{}
+type ArtifactAliasConnectionResolver struct {
+	edges []*ArtifactAliasEdgeResolver
+}
 
-func (c *ArtifactAliasConnectionResolver) Edges() []*ArtifactAliasEdgeResolver { return nil }
+func (c *ArtifactAliasConnectionResolver) Edges() []*ArtifactAliasEdgeResolver { return c.edges }
 func (c *ArtifactAliasConnectionResolver) PageInfo() *PageInfoResolver         { return &PageInfoResolver{} }
 
-type ArtifactAliasEdgeResolver struct{}
+type ArtifactAliasEdgeResolver struct {
+	node *ArtifactAliasResolver
+}
 
-func (e *ArtifactAliasEdgeResolver) Node() *ArtifactAliasResolver { return nil }
+func (e *ArtifactAliasEdgeResolver) Node() *ArtifactAliasResolver { return e.node }
 func (e *ArtifactAliasEdgeResolver) Cursor() *string              { return nil }
 
 type ArtifactMembershipConnectionResolver struct{}
@@ -648,3 +676,5 @@ type ArtifactTypeEdgeResolver struct {
 
 func (e *ArtifactTypeEdgeResolver) Node() *ArtifactTypeResolver { return e.node }
 func (e *ArtifactTypeEdgeResolver) Cursor() *string             { return nil }
+
+// (ArtifactTypeResolver is defined above at line 220)

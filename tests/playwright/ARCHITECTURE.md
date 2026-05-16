@@ -462,24 +462,49 @@ Tests that need the same SDK setup share a folder. A folder's `setup.py` creates
 
 ```typescript
 // playwright.config.ts
+
+const VIEWPORTS = {
+  desktop:  { width: 1280, height: 720 },
+  tablet:   { width: 768,  height: 1024 },
+  mobile:   { width: 375,  height: 812 },
+};
+
 projects: [
+  // --- bandw ---
   {
     name: 'bandw',
-    use: { baseURL: 'http://localhost:5173' },
-    // env: WANDB_BASE_URL=http://localhost:8081, WANDB_API_KEY=<dev-key>
+    use: { baseURL: 'http://localhost:5173', viewport: VIEWPORTS.desktop },
   },
   {
+    name: 'bandw-tablet',
+    use: { baseURL: 'http://localhost:5173', viewport: VIEWPORTS.tablet },
+  },
+  {
+    name: 'bandw-mobile',
+    use: { baseURL: 'http://localhost:5173', viewport: VIEWPORTS.mobile },
+  },
+  // --- wandb ---
+  {
     name: 'wandb',
-    use: { baseURL: 'https://REMOVED' },
-    // env: WANDB_BASE_URL=https://REMOVED, WANDB_API_KEY=<from-env>
+    use: { baseURL: 'https://REMOVED', viewport: VIEWPORTS.desktop },
+  },
+  {
+    name: 'wandb-tablet',
+    use: { baseURL: 'https://REMOVED', viewport: VIEWPORTS.tablet },
+  },
+  {
+    name: 'wandb-mobile',
+    use: { baseURL: 'https://REMOVED', viewport: VIEWPORTS.mobile },
   },
 ]
 ```
 
 **Commands:**
-- `npx playwright test --project=bandw` — local dev (default)
-- `npx playwright test --project=wandb` — conformance against real W&B
-- `npx playwright test` — both targets
+- `npx playwright test --project=bandw` — desktop only (fastest local dev loop)
+- `npx playwright test --project=bandw --project=bandw-tablet --project=bandw-mobile` — all viewports
+- `npx playwright test --project=wandb` — conformance against real W&B (desktop)
+- `npx playwright test` — all targets × all viewports
+- `npx playwright test --grep @responsive` — only responsive-specific assertions
 
 ### Dual-Target Requirements
 
@@ -501,6 +526,103 @@ Every spec and page object must work against both targets without depending on o
 - **Reference-only artifacts from wandb.ai**:
   - HARs and screenshots from wandb.ai are reference fixtures
   - assertions must still be written against shared user-visible behavior
+
+## Responsive / Viewport Testing
+
+Every spec runs at three viewport sizes — **desktop** (1280×720), **tablet** (768×1024), and **mobile** (375×812) — via Playwright projects. This ensures the UI remains usable across screen sizes without maintaining a separate test suite.
+
+### Breakpoints
+
+| Name | Width × Height | Rationale |
+|---|---|---|
+| `desktop` | 1280 × 720 | Baseline — standard laptop viewport |
+| `tablet` | 768 × 1024 | iPad portrait — tests sidebar collapse, panel reflow |
+| `mobile` | 375 × 812 | iPhone SE/13 Mini — tests hamburger nav, stacked layouts |
+
+These match common CSS breakpoint conventions. Additional sizes can be added as Playwright projects without changing any spec files.
+
+### How it works
+
+Playwright projects set the viewport. Each `*.spec.ts` runs three times (once per project/viewport) with no code changes required. The same SDK setup data is reused — only the browser viewport differs.
+
+Tests should be written so that **all core assertions pass at all viewports**. The UI may look different (collapsed sidebar, stacked panels, hamburger menu), but the data and interactions remain accessible.
+
+### Writing viewport-aware tests
+
+Most tests need no viewport-specific logic. When responsive behavior requires different interactions at different sizes, use a helper to branch:
+
+```typescript
+import { test, expect } from '../fixtures/base';
+
+test('sidebar shows run count', async ({ page, isMobile, isTablet }) => {
+  if (isMobile) {
+    // Open hamburger menu first
+    await page.getByRole('button', { name: /menu/i }).click();
+  }
+  await expect(page.getByRole('complementary', { name: /runs sidebar/i }))
+    .toBeVisible();
+});
+```
+
+The `isMobile` and `isTablet` flags are derived from the active project name in `base.ts`:
+
+```typescript
+// fixtures/base.ts
+export const test = base.extend<{ isMobile: boolean; isTablet: boolean }>({
+  isMobile: async ({}, use, testInfo) => {
+    await use(testInfo.project.name.endsWith('-mobile'));
+  },
+  isTablet: async ({}, use, testInfo) => {
+    await use(testInfo.project.name.endsWith('-tablet'));
+  },
+});
+```
+
+### Tagging responsive-specific assertions
+
+When a test includes assertions that **only apply** at smaller viewports (e.g., verifying a hamburger menu exists), tag the test or assertion block with `@responsive`:
+
+```typescript
+test('navigation collapses to hamburger on mobile @responsive', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'hamburger only exists on mobile');
+  await expect(page.getByRole('button', { name: /menu/i })).toBeVisible();
+});
+```
+
+This lets you run `--grep @responsive` to execute only responsive-specific tests, or `--grep-invert @responsive` to skip them for faster iteration.
+
+### What to verify at each viewport
+
+| Concern | Desktop | Tablet | Mobile |
+|---|---|---|---|
+| Core data assertions (values, counts, labels) | Yes | Yes | Yes |
+| Sidebar visible without interaction | Yes | Maybe | No |
+| Navigation via tabs/links | Yes | Yes | Via hamburger |
+| Panel grid layout (multi-column) | Yes | Reduced | Single-column |
+| Table horizontal scroll | No | Maybe | Yes |
+| Modals / drawers fully visible | Yes | Yes | Yes (may be full-screen) |
+| Canvas charts render | Yes | Yes | Yes (smaller) |
+
+### Screenshots at each viewport
+
+Screenshots are saved with the project name in the path, so each viewport gets its own baseline:
+
+```
+screenshots/
+  bandw/track/project-page/overview.png
+  bandw-tablet/track/project-page/overview.png
+  bandw-mobile/track/project-page/overview.png
+```
+
+### ARIA attributes for responsive components
+
+In addition to the ARIA attributes listed in the Selector Strategy section, responsive components need:
+
+| Component | Element | Change Needed |
+|---|---|---|
+| Hamburger menu | `<button>` | `aria-label="Menu"`, `aria-expanded` |
+| Mobile drawer/overlay | `<div>` | `role="dialog"`, `aria-label` |
+| Collapsible sidebar | `<aside>` | `aria-expanded` on toggle control |
 
 ## Selector Strategy
 
@@ -646,9 +768,13 @@ uv run python scripts/analyze-snapshots.py --wandb snapshots/wandb --bandw snaps
 
 ## Implementation Phases
 
-| Phase | Test Count | Plan Files | Priority |
-|---|---|---|---|
-| **A: Foundation** | 0 | 00-architecture | Setup |
-| **B: Core** | 53 | 01, 09, 10, 13 | P0 |
-| **C: Workspace & Panels** | 71 | 02-05, 07-08, 11-12, 18-19, 22 | P1 |
-| **D: Advanced** | 76 | 06, 14-17, 20-21, 23-26 | P2 |
+| Phase | Test Count (desktop) | ×3 viewports | Plan Files | Priority |
+|---|---|---|---|---|
+| **A: Foundation** | 0 | 0 | 00-architecture | Setup |
+| **B: Core** | 53 | 159 | 01, 09, 10, 13 | P0 |
+| **C: Workspace & Panels** | 71 | 213 | 02-05, 07-08, 11-12, 18-19, 22 | P1 |
+| **D: Advanced** | 76 | 228 | 06, 14-17, 20-21, 23-26 | P2 |
+
+> **Note:** Each test runs at desktop, tablet, and mobile viewports via Playwright projects.
+> The "×3 viewports" column shows the total test executions across all three sizes.
+> Desktop-only runs (`--project=bandw`) use the base test count for faster iteration.

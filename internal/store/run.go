@@ -129,12 +129,35 @@ func ListRuns(db *gorm.DB, projectID string, limit, offset int, order string) ([
 }
 
 // GetRunByName finds a run by project ID and run name.
+// Falls back to display_name if no match is found by name.
 func GetRunByName(db *gorm.DB, projectID, runName string) (*Run, error) {
 	var run Run
 	if err := db.Where("project_id = ? AND name = ?", projectID, runName).First(&run).Error; err != nil {
+		// Fall back to display_name lookup
+		if err2 := db.Where("project_id = ? AND display_name = ?", projectID, runName).First(&run).Error; err2 != nil {
+			return nil, err
+		}
+		return &run, nil
+	}
+	return &run, nil
+}
+
+// GetRunByID finds a run by its database primary key (UUID).
+func GetRunByID(db *gorm.DB, id string) (*Run, error) {
+	var run Run
+	if err := db.Where("id = ?", id).First(&run).Error; err != nil {
 		return nil, err
 	}
 	return &run, nil
+}
+
+// GetProjectByID finds a project by its database primary key.
+func GetProjectByID(db *gorm.DB, id string) (*Project, error) {
+	var p Project
+	if err := db.Where("id = ?", id).First(&p).Error; err != nil {
+		return nil, err
+	}
+	return &p, nil
 }
 
 // GetHistory returns history rows for a run within a step range, paginated by limit.

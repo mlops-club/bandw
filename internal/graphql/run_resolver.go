@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	gql "github.com/graph-gophers/graphql-go"
@@ -18,9 +19,20 @@ type RunResolver struct {
 // ToRun implements the ArtifactCreator union resolution for graph-gophers.
 func (r *RunResolver) ToRun() (*RunResolver, bool) { return r, true }
 
-func (r *RunResolver) ID() gql.ID               { return gql.ID(r.run.ID) }
-func (r *RunResolver) Name() string             { return r.run.Name }
-func (r *RunResolver) DisplayName() *string     { return strPtr(r.run.DisplayName) }
+func (r *RunResolver) ID() gql.ID           { return gql.ID(r.run.ID) }
+func (r *RunResolver) Name() string         { return r.run.Name }
+func (r *RunResolver) DisplayName() *string { return strPtr(r.run.DisplayName) }
+func (r *RunResolver) ProjectId() *int32 {
+	// wandb SDK expects projectId as an integer — use a hash of the UUID
+	h := int32(0)
+	for _, c := range r.run.ProjectID {
+		h = h*31 + int32(c)
+	}
+	if h < 0 {
+		h = -h
+	}
+	return &h
+}
 func (r *RunResolver) Description() *string     { return strPtr(r.run.Description) }
 func (r *RunResolver) Notes() *string           { return strPtr(r.run.Notes) }
 func (r *RunResolver) SweepName() *string       { return strPtr(r.run.SweepName) }
@@ -49,6 +61,10 @@ func (r *RunResolver) SummaryMetrics() *JSONString {
 		return nil
 	}
 	return &JSONString{Value: s}
+}
+
+func (r *RunResolver) SystemMetrics() *JSONString {
+	return &JSONString{Value: "{}"}
 }
 
 func (r *RunResolver) Tags() *[]string {
@@ -212,6 +228,60 @@ func (r *RunResolver) InputArtifacts(args struct {
 		}
 	}
 	return &ArtifactConnectionResolver{edges: edges}, nil
+}
+
+func (r *RunResolver) Files(args struct {
+	Names   *[]*string
+	Pattern *string
+	After   *string
+	First   *int32
+}) (*FileConnectionResolver, error) {
+	query := r.db.Where("run_id = ?", r.run.ID)
+
+	if args.Names != nil && len(*args.Names) > 0 {
+		names := make([]string, 0, len(*args.Names))
+		for _, n := range *args.Names {
+			if n != nil {
+				names = append(names, *n)
+			}
+		}
+		if len(names) > 0 {
+			query = query.Where("name IN ?", names)
+		}
+	}
+
+	if args.Pattern != nil && *args.Pattern != "" {
+		pattern := strings.ReplaceAll(*args.Pattern, "*", "%")
+		query = query.Where("name LIKE ?", pattern)
+	}
+
+	if args.First != nil {
+		query = query.Limit(int(*args.First))
+	}
+
+	var runFiles []store.RunFile
+	if err := query.Order("name ASC").Find(&runFiles).Error; err != nil {
+		return nil, err
+	}
+
+	edges := make([]*FileEdgeResolver, len(runFiles))
+	for i := range runFiles {
+		rf := &runFiles[i]
+		adapted := &store.ArtifactFileStored{
+			ID:          rf.ID,
+			Name:        rf.Name,
+			StoragePath: rf.StoragePath,
+			UploadURL:   rf.UploadURL,
+			DirectURL:   rf.DirectURL,
+			Size:        rf.Size,
+			MD5:         rf.MD5,
+		}
+		edges[i] = &FileEdgeResolver{
+			node: &FileResolver{file: adapted, db: r.db},
+		}
+	}
+
+	return &FileConnectionResolver{edges: edges}, nil
 }
 
 func (r *RunResolver) OutputArtifacts(args struct {

@@ -68,8 +68,18 @@ func (r *Resolver) UpsertBucket(ctx context.Context, args UpsertBucketArgs) (*Up
 	if input.Name != nil {
 		runName = *input.Name
 	}
+
+	// If ID is provided without Name, try to find existing run by its
+	// database ID (storage_id). The Public API sends id=storage_id for updates.
 	if runName == "" && input.ID != nil {
-		runName = *input.ID
+		existingByID, idErr := store.GetRunByID(r.db, *input.ID)
+		if idErr == nil && existingByID != nil {
+			runName = existingByID.Name
+			// Also override project to match the existing run's project
+			project, _ = store.GetProjectByID(r.db, existingByID.ProjectID)
+		} else {
+			runName = *input.ID
+		}
 	}
 
 	upsertInput := store.UpsertRunInput{

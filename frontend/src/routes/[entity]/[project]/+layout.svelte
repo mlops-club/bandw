@@ -16,7 +16,7 @@
 			? [
 					{ label: entity ?? '', href: `/${entity}/projects` },
 					{ label: project ?? '', href: `/${entity}/${project}/workspace` },
-					{ label: page.params.runId ?? 'run', href: page.url.pathname }
+					{ label: 'Run', href: page.url.pathname }
 				]
 			: [
 					{ label: entity ?? '', href: `/${entity}/projects` },

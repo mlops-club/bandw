@@ -6,15 +6,21 @@
 	const tabs = $derived([
 		{ label: 'Overview', href: `/${entity}/${project}/overview` },
 		{ label: 'Workspace', href: `/${entity}/${project}/workspace` },
-		{ label: 'Runs', href: `/${entity}/${project}/table` }
+		{ label: 'Runs', href: `/${entity}/${project}/table` },
+		{ label: 'Reports', href: `/${entity}/${project}/reportlist` },
+		{ label: 'Artifacts', href: `/${entity}/${project}/artifacts` }
 	]);
 
 	const currentPath = $derived(page.url.pathname);
 </script>
 
-<nav class="project-nav">
+<nav class="project-nav" role="tablist">
 	{#each tabs as tab}
-		<a href={tab.href} class:active={currentPath === tab.href}>{tab.label}</a>
+		{#if currentPath === tab.href}
+			<a href={tab.href} role="tab" aria-selected="true" class="active">{tab.label}</a>
+		{:else}
+			<a href={tab.href} class:active={false}>{tab.label}</a>
+		{/if}
 	{/each}
 </nav>
 

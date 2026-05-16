@@ -3,7 +3,11 @@ package graphql
 // ServerInfoResolver implements the ServerInfo type with static responses.
 type ServerInfoResolver struct{}
 
-func (s *ServerInfoResolver) CliVersionInfo() *JSONScalar                       { return nil }
+func (s *ServerInfoResolver) CliVersionInfo() *JSONScalar {
+	return &JSONScalar{Value: map[string]interface{}{
+		"max_cli_version": "0.26.0",
+	}}
+}
 func (s *ServerInfoResolver) LatestLocalVersionInfo() *LocalVersionInfoResolver { return nil }
 func (s *ServerInfoResolver) Features() []*ServerFeatureResolver                { return []*ServerFeatureResolver{} }
 

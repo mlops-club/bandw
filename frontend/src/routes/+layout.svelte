@@ -23,11 +23,30 @@
 </div>
 
 <style>
+	:global(:root) {
+		--bg-body: #1a1a2e;
+		--bg-primary: #16213e;
+		--bg-secondary: #1e2d4a;
+		--bg-input: #0d1117;
+		--bg-accent: #1e3a5f;
+		--text-primary: #e0e0e0;
+		--text-secondary: #8899aa;
+		--text-dim: #556677;
+		--text-key: #a0b0c0;
+		--accent: #4fc3f7;
+		--accent-hover: #81d4fa;
+		--success: #81c784;
+		--warning: #ffb74d;
+		--error: #ff6b6b;
+		--border: #1e2d4a;
+		--border-focus: #0f3460;
+	}
+
 	:global(body) {
 		margin: 0;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-		background: #1a1a2e;
-		color: #e0e0e0;
+		background: var(--bg-body);
+		color: var(--text-primary);
 	}
 
 	:global(a) {
@@ -44,8 +63,8 @@
 	}
 
 	header {
-		background: #16213e;
-		border-bottom: 1px solid #0f3460;
+		background: var(--bg-primary);
+		border-bottom: 1px solid var(--border-focus);
 		padding: 0 1.5rem;
 	}
 

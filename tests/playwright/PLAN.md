@@ -57,12 +57,16 @@ All SPEC.md paths are relative to `tests/playwright/tests/`.
 
 ## Test Count Summary
 
-| Priority | Test Count | Test Folders |
-|---|---|---|
-| **P0** | 55 | `app/panels/line-plot/`, `track/project-page/`, `runs/view/`, `track/config/`, `track/logging/`, `track/summary/` |
-| **P1** | 71 | `app/panels/{bar,scatter,parallel,run-comparer,overview}/`, `track/workspaces/`, `runs/{compare,management,filter,display}/`, `app/cascade-settings/`, `track/plots/` |
-| **P2** | 76 | `app/panels/{parameter-importance,media,code,query-panels}/`, `artifacts/`, `reports/`, `tables/`, `app/{custom-charts,keyboard-shortcuts}/` |
-| **Total** | **202** | |
+| Priority | Tests (desktop) | ×3 viewports | Test Folders |
+|---|---|---|---|
+| **P0** | 55 | 165 | `app/panels/line-plot/`, `track/project-page/`, `runs/view/`, `track/config/`, `track/logging/`, `track/summary/` |
+| **P1** | 71 | 213 | `app/panels/{bar,scatter,parallel,run-comparer,overview}/`, `track/workspaces/`, `runs/{compare,management,filter,display}/`, `app/cascade-settings/`, `track/plots/` |
+| **P2** | 76 | 228 | `app/panels/{parameter-importance,media,code,query-panels}/`, `artifacts/`, `reports/`, `tables/`, `app/{custom-charts,keyboard-shortcuts}/` |
+| **Total** | **202** | **606** | |
+
+> Every test runs at 3 viewports (desktop 1280×720, tablet 768×1024, mobile 375×812) via
+> Playwright projects. Desktop-only runs (`--project=bandw`) use the base count for faster iteration.
+> See [ARCHITECTURE.md](ARCHITECTURE.md) § "Responsive / Viewport Testing" for details.
 
 ---
 
@@ -173,37 +177,100 @@ See [00-architecture.md](00-architecture.md) for the complete expanded tree.
 
 ## Implementation Order
 
-### Phase A: Foundation (before any tests)
-1. `tests/playwright/package.json` + `playwright.config.ts` + `tsconfig.json`
-2. `tests/playwright/pyproject.toml` for Python deps
-3. `tests/playwright/fixtures/base.ts` + `sdk-setup.ts`
-4. `tests/playwright/shared-sdk/helpers.py`
-5. First page object: `pages/runs-table.page.ts`
-6. ARIA attributes added to Svelte components (see 00-architecture.md)
+Items within a step marked **parallel** can be worked on concurrently.
+Check off each item as it is completed.
 
-### Phase B: P0 Tests (53 tests)
-1. `config-and-logging/` — proves SDK-to-UI data flow
-2. `run-detail/` — verifies individual run pages
-3. `project-page/` — verifies runs table
-4. `line-plots/` — verifies the most important panel type
+### Phase A: Foundation (before any tests)
+
+- [x] A1. `tests/playwright/package.json` + `playwright.config.ts` + `tsconfig.json`
+- [x] A2. `tests/playwright/pyproject.toml` for Python deps
+- [x] A3. `tests/playwright/fixtures/base.ts` (incl. `isMobile` / `isTablet` fixtures) + `sdk-setup.ts` + `network-recorder.ts`
+- [x] A4. `tests/playwright/shared-sdk/helpers.py`
+- [x] A5. First page objects: `pages/runs-table.page.ts`, `pages/run-detail.page.ts`
+- [ ] A6. ARIA attributes added to Svelte components (see 00-architecture.md)
+
+> A1 and A2 are **parallel**. A3-A4 depend on A1/A2. A5 depends on A3.
+> A6 is ongoing — add attributes as each test area is implemented.
+
+### Phase B: P0 Tests (55 tests) — sequential within, proves core data flow
+
+- [x] B1. `track/config/` (5 tests) — proves SDK config → UI flow
+- [x] B2. `track/logging/` (8 tests) — proves SDK metrics → UI flow
+- [x] B3. `track/summary/` (3 tests) — proves SDK summary → UI flow
+- [ ] B4. `runs/view/` (12 tests) — verifies individual run detail pages
+- [ ] B5. `track/project-page/` (14 tests) — verifies runs table & project overview
+- [ ] B6. `app/panels/line-plot/` (20 tests) — verifies the most important panel type
+
+> B1, B2, B3 are **parallel** (independent SDK setup scripts, independent pages).
+> B4 depends on B1-B3 (uses the same run detail page objects).
+> B5 is **parallel** with B4 (different page, different fixtures).
+> B6 depends on B4 (builds on run detail page objects + charts tab).
 
 ### Phase C: P1 Tests (71 tests)
-5. `workspaces/` + `panels-overview/` + `cascade-settings/`
-6. `bar-plots/` + `scatter-plots/` + `parallel-coordinates/` + `logging-axes-and-plots/`
-7. `run-comparer/` + `compare-runs/` + `run-management/` + `run-display-and-search/`
+
+**Step C1 — Workspace & layout (21 tests):**
+- [ ] C1a. `track/workspaces/` (7 tests)
+- [ ] C1b. `app/panels/overview/` (8 tests)
+- [ ] C1c. `app/cascade-settings/` (6 tests)
+
+> C1a, C1b, C1c are **parallel** (independent page objects and fixtures).
+
+**Step C2 — Additional panel types (22 tests):**
+- [ ] C2a. `app/panels/bar-plot/` (3 tests)
+- [ ] C2b. `app/panels/scatter-plot/` (2 tests)
+- [ ] C2c. `app/panels/parallel-coordinates/` (3 tests)
+- [ ] C2d. `track/plots/` (14 tests)
+
+> C2a, C2b, C2c are **parallel**. C2d can run in **parallel** with C2a-C2c.
+> All of C2 can run in **parallel** with C1 (different page areas).
+
+**Step C3 — Run operations (42 tests):**
+- [ ] C3a. `app/panels/run-comparer/` (5 tests)
+- [ ] C3b. `runs/compare/` (9 tests)
+- [ ] C3c. `runs/management/` (7 tests) + `runs/filter/` (7 tests)
+- [ ] C3d. `runs/display/` (14 tests)
+
+> C3a and C3b are **parallel** (both compare-related but different pages).
+> C3c and C3d are **parallel** (management vs display).
+> All of C3 can run in **parallel** with C1 and C2 (different page areas).
 
 ### Phase D: P2 Tests (76 tests)
-8. `media-panels/` + `code-query-panels/` + `keyboard-shortcuts/`
-9. `artifacts/` + `artifacts-advanced/`
-10. `reports/` + `reports-advanced/`
-11. `tables/` + `tables-advanced/`
-12. `custom-charts/` + `parameter-importance/`
+
+**Step D1 — Specialized panels (23 tests):**
+- [ ] D1a. `app/panels/media/` (13 tests)
+- [ ] D1b. `app/panels/code/` (3 tests) + `app/panels/query-panels/` (3 tests)
+- [ ] D1c. `app/keyboard-shortcuts/` (4 tests)
+
+> D1a, D1b, D1c are **parallel**.
+
+**Step D2 — Artifacts (11 tests):**
+- [ ] D2a. `artifacts/core/` (6 tests)
+- [ ] D2b. `artifacts/advanced/` (5 tests)
+
+> D2a first, then D2b (advanced builds on core page objects).
+> D2 is **parallel** with D1.
+
+**Step D3 — Reports (18 tests):**
+- [ ] D3a. `reports/core/` (9 tests)
+- [ ] D3b. `reports/advanced/` (9 tests)
+
+> D3a first, then D3b. D3 is **parallel** with D1 and D2.
+
+**Step D4 — Tables & remaining (18 tests):**
+- [ ] D4a. `tables/core/` (6 tests)
+- [ ] D4b. `tables/advanced/` (4 tests)
+- [ ] D4c. `app/custom-charts/` (8 tests)
+- [ ] D4d. `app/panels/parameter-importance/` (2 tests — stub; needs ML backend)
+
+> D4a then D4b (sequential). D4c and D4d are **parallel** with each other and with D4a/D4b.
+> All of D4 is **parallel** with D1, D2, D3.
 
 ---
 
 ## Parallelism Budget
 
-With 200 tests across ~60 spec files, at 8 parallel workers:
+With 202 tests across ~60 spec files, at 8 parallel workers:
 - Each spec file: ~20-30s (SDK setup + browser tests)
-- Total wall time estimate: ~4-5 minutes for full suite
-- P0 only: ~2 minutes
+- **Desktop only** (`--project=bandw`): ~4-5 minutes for full suite, ~2 minutes P0 only
+- **All 3 viewports** (`bandw` + `bandw-tablet` + `bandw-mobile`): ~12-15 minutes (3× spec files, but SDK setup is shared across viewports so no 3× on data creation)
+- **Tip:** Run desktop-only during development; run all viewports in CI and before merge

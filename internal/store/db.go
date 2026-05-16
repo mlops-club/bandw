@@ -64,11 +64,12 @@ func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&User{}, &Entity{}, &APIKey{},
 		&Project{}, &Run{},
-		&RunHistory{}, &RunEvent{}, &RunLog{},
+		&RunHistory{}, &RunEvent{}, &RunLog{}, &RunFile{},
 		// Artifact tables
 		&ArtifactType{}, &ArtifactCollection{}, &Artifact{},
 		&ArtifactAlias{}, &ArtifactManifest{}, &ArtifactManifestEntry{},
 		&ArtifactFileStored{}, &ArtifactUsage{},
 		&Tag{}, &ArtifactCollectionTag{},
+		&View{},
 	)
 }

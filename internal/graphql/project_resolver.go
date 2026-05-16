@@ -203,3 +203,5 @@ func (p *ProjectResolver) ArtifactCollections(args struct {
 	}
 	return &ArtifactCollectionConnectionResolver{edges: edges}, nil
 }
+
+// ArtifactTypes method is defined above
