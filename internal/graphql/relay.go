@@ -90,7 +90,7 @@ type LogLineResolver struct {
 	stream  string
 }
 
-func (l *LogLineResolver) LineNum() int32  { return int32(l.lineNum) }
+func (l *LogLineResolver) LineNum() int32  { return safeInt32(l.lineNum) }
 func (l *LogLineResolver) Content() string { return l.content }
 func (l *LogLineResolver) Stream() string  { return l.stream }
 

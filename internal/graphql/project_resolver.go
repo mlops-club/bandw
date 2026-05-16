@@ -47,7 +47,7 @@ func (p *ProjectResolver) RunCount() (int32, error) {
 	if err != nil {
 		return 0, err
 	}
-	return int32(count), nil
+	return safeInt64ToInt32(count), nil
 }
 
 // LastRunAt resolves Project.lastRunAt — the creation time of the most recent run.
