@@ -57,7 +57,38 @@ uv run pytest
 
 - Go integration tests use in-memory SQLite via GORM (no Docker needed)
 - SDK conformance tests run upstream W&B SDK system tests against our backend
-- UI tests use Playwright (future)
+- UI tests use playwright-bdd (Gherkin `.feature` files + Playwright)
+
+### UI Tests (playwright-bdd)
+
+Tests live in `tests/playwright/`. Each feature area has:
+- `setup.py` — Python SDK script that creates test data (runs, metrics, artifacts)
+- `*.feature` — Gherkin scenarios describing UI behavior
+- `steps/*.steps.ts` — Step definitions wiring Gherkin to Playwright actions
+
+```bash
+cd tests/playwright
+
+# Run BDD tests against local bandw (requires backend + frontend running)
+npm run test:bdd:bandw
+
+# Run BDD tests against real wandb.ai (requires .auth/wandb-storage-state.json)
+npm run test:bdd:wandb
+
+# Run against both targets
+npm run test:bdd
+
+# Regenerate BDD specs from .feature files (needed after editing features)
+npm run bddgen
+
+# Clean stale SDK manifests (done automatically via pretest)
+npm run clean:manifests
+```
+
+To set up wandb.ai auth for the first time:
+1. Close Brave
+2. Run: `npx playwright test --project=wandb-auth-setup`
+3. Or manually: launch Brave via Playwright, log in, save storage state to `.auth/wandb-storage-state.json`
 
 ### Merge Gate (CRITICAL)
 
