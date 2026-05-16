@@ -129,10 +129,15 @@ func ListRuns(db *gorm.DB, projectID string, limit, offset int, order string) ([
 }
 
 // GetRunByName finds a run by project ID and run name.
+// Falls back to display_name if no match is found by name.
 func GetRunByName(db *gorm.DB, projectID, runName string) (*Run, error) {
 	var run Run
 	if err := db.Where("project_id = ? AND name = ?", projectID, runName).First(&run).Error; err != nil {
-		return nil, err
+		// Fall back to display_name lookup
+		if err2 := db.Where("project_id = ? AND display_name = ?", projectID, runName).First(&run).Error; err2 != nil {
+			return nil, err
+		}
+		return &run, nil
 	}
 	return &run, nil
 }

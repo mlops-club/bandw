@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	gql "github.com/graph-gophers/graphql-go"
@@ -227,6 +228,60 @@ func (r *RunResolver) InputArtifacts(args struct {
 		}
 	}
 	return &ArtifactConnectionResolver{edges: edges}, nil
+}
+
+func (r *RunResolver) Files(args struct {
+	Names   *[]*string
+	Pattern *string
+	After   *string
+	First   *int32
+}) (*FileConnectionResolver, error) {
+	query := r.db.Where("run_id = ?", r.run.ID)
+
+	if args.Names != nil && len(*args.Names) > 0 {
+		names := make([]string, 0, len(*args.Names))
+		for _, n := range *args.Names {
+			if n != nil {
+				names = append(names, *n)
+			}
+		}
+		if len(names) > 0 {
+			query = query.Where("name IN ?", names)
+		}
+	}
+
+	if args.Pattern != nil && *args.Pattern != "" {
+		pattern := strings.ReplaceAll(*args.Pattern, "*", "%")
+		query = query.Where("name LIKE ?", pattern)
+	}
+
+	if args.First != nil {
+		query = query.Limit(int(*args.First))
+	}
+
+	var runFiles []store.RunFile
+	if err := query.Order("name ASC").Find(&runFiles).Error; err != nil {
+		return nil, err
+	}
+
+	edges := make([]*FileEdgeResolver, len(runFiles))
+	for i := range runFiles {
+		rf := &runFiles[i]
+		adapted := &store.ArtifactFileStored{
+			ID:          rf.ID,
+			Name:        rf.Name,
+			StoragePath: rf.StoragePath,
+			UploadURL:   rf.UploadURL,
+			DirectURL:   rf.DirectURL,
+			Size:        rf.Size,
+			MD5:         rf.MD5,
+		}
+		edges[i] = &FileEdgeResolver{
+			node: &FileResolver{file: adapted, db: r.db},
+		}
+	}
+
+	return &FileConnectionResolver{edges: edges}, nil
 }
 
 func (r *RunResolver) OutputArtifacts(args struct {

@@ -6,6 +6,9 @@
 	import { getColor } from '$lib/utils/colors';
 	import StateBadge from '$lib/components/StateBadge.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
+	import CustomChartPanel from '$lib/components/CustomChartPanel.svelte';
+	import WandbTable from '$lib/components/WandbTable.svelte';
+	import WandbTableArtifacts from '$lib/components/WandbTableArtifacts.svelte';
 
 	const client = getContextClient();
 	const entity = $derived(page.params.entity);
@@ -33,6 +36,9 @@
 			: []
 	);
 
+	// Parse custom chart definitions from run config (_bandw_charts key)
+	const customCharts = $derived(run ? parseCustomCharts(run.config) : []);
+
 	// Build sampledHistory specs for all metric keys
 	const specs = $derived(
 		metricKeys.map((k: string) =>
@@ -45,12 +51,28 @@
 		)
 	);
 
+	// Build extra specs for custom chart keys that need sampled history
+	const customChartSpecs = $derived(
+		customCharts
+			.filter((c) => !c.data && c.xKey && c.yKey)
+			.map((c) =>
+				JSON.stringify({
+					keys: [c.xKey!, c.yKey!],
+					samples: 500,
+					minStep: 0,
+					maxStep: (historyKeys?.lastStep ?? 0) + 1
+				})
+			)
+	);
+
+	const allSpecs = $derived([...specs, ...customChartSpecs]);
+
 	const historyResult = $derived(
-		specs.length > 0
+		allSpecs.length > 0
 			? queryStore({
 					client,
 					query: SAMPLED_HISTORY_QUERY,
-					variables: { entityName: entity, projectName: project, runName: runId, specs }
+					variables: { entityName: entity, projectName: project, runName: runId, specs: allSpecs }
 				})
 			: null
 	);
@@ -74,6 +96,93 @@
 			};
 		});
 	});
+
+	// Extract sampled rows for custom charts that need history data
+	const customChartSampled = $derived.by(() => {
+		if (!historyResult || !$historyResult?.data?.project?.run?.sampledHistory) return [];
+		const sampled = $historyResult.data.project.run.sampledHistory;
+		const chartsNeedingHistory = customCharts.filter((c) => !c.data && c.xKey && c.yKey);
+		return chartsNeedingHistory.map((_c, i) => {
+			return (sampled[specs.length + i] || []) as Record<string, number>[];
+		});
+	});
+
+	type CustomChartDef = {
+		title: string;
+		type: string;
+		xKey?: string;
+		yKey?: string;
+		labelKey?: string;
+		valueKey?: string;
+		data?: Record<string, unknown>[];
+	};
+
+	function parseCustomCharts(raw: string | null): CustomChartDef[] {
+		if (!raw) return [];
+		try {
+			const parsed = JSON.parse(raw);
+			const chartsRaw = parsed['_bandw_charts'];
+			if (!chartsRaw) return [];
+			// It may be wrapped in {value: [...]} by wandb config format
+			const arr = typeof chartsRaw === 'object' && chartsRaw !== null && 'value' in chartsRaw
+				? chartsRaw.value
+				: chartsRaw;
+			if (!Array.isArray(arr)) return [];
+			return arr as CustomChartDef[];
+		} catch {
+			return [];
+		}
+	}
+
+	type BandwTableDef = {
+		columns: string[];
+		data: unknown[][];
+		steps?: { columns: string[]; data: unknown[][]; step: number }[];
+	};
+
+	type BandwArtifactDef = {
+		name: string;
+		type: string;
+		table_name: string;
+		columns: string[];
+		data: unknown[][];
+	};
+
+	// Parse _bandw_tables from run config
+	const bandwTables = $derived(run ? parseBandwTables(run.config) : {});
+	const bandwArtifacts = $derived(run ? parseBandwArtifacts(run.config) : []);
+
+	function parseBandwTables(raw: string | null): Record<string, BandwTableDef> {
+		if (!raw) return {};
+		try {
+			const parsed = JSON.parse(raw);
+			const tablesRaw = parsed['_bandw_tables'];
+			if (!tablesRaw) return {};
+			const obj = typeof tablesRaw === 'object' && tablesRaw !== null && 'value' in tablesRaw
+				? tablesRaw.value
+				: tablesRaw;
+			if (!obj || typeof obj !== 'object') return {};
+			return obj as Record<string, BandwTableDef>;
+		} catch {
+			return {};
+		}
+	}
+
+	function parseBandwArtifacts(raw: string | null): BandwArtifactDef[] {
+		if (!raw) return [];
+		try {
+			const parsed = JSON.parse(raw);
+			const artsRaw = parsed['_bandw_artifacts'];
+			if (!artsRaw) return [];
+			const arr = typeof artsRaw === 'object' && artsRaw !== null && 'value' in artsRaw
+				? artsRaw.value
+				: artsRaw;
+			if (!Array.isArray(arr)) return [];
+			return arr as BandwArtifactDef[];
+		} catch {
+			return [];
+		}
+	}
 
 	function parseConfig(raw: string | null): Record<string, unknown> {
 		if (!raw) return {};
@@ -131,6 +240,50 @@
 			: logLines
 	);
 
+	// Files from run
+	const runFiles = $derived(
+		run?.files?.edges?.map((e: { node: { id: string; name: string; url: string; directUrl: string; sizeBytes: number } }) => e.node) ?? []
+	);
+
+	// File viewer state
+	let selectedFile: { name: string; url: string; directUrl: string } | null = $state(null);
+	let fileContent = $state('');
+	let fileLoading = $state(false);
+
+	async function openFile(file: { name: string; url: string; directUrl: string }) {
+		selectedFile = file;
+		fileLoading = true;
+		fileContent = '';
+		try {
+			const fetchUrl = file.directUrl || file.url;
+			if (fetchUrl) {
+				const resp = await fetch(fetchUrl);
+				if (resp.ok) {
+					fileContent = await resp.text();
+				} else {
+					fileContent = `(Failed to load file: ${resp.status})`;
+				}
+			} else {
+				fileContent = '(No URL available for this file)';
+			}
+		} catch (err) {
+			fileContent = `(Error loading file: ${err})`;
+		}
+		fileLoading = false;
+	}
+
+	// Parse _bandw_files from config
+	const bandwFiles = $derived.by(() => {
+		if (!run?.config) return [];
+		try {
+			const parsed = JSON.parse(run.config);
+			const files = parsed['_bandw_files'];
+			if (!files) return [];
+			const val = typeof files === 'object' && 'value' in files ? files.value : files;
+			return (val?.files || []) as { name: string; content: string }[];
+		} catch { return []; }
+	});
+
 	const configParsed = $derived(run ? parseConfig(run.config) : {});
 	const summaryParsed = $derived(run ? parseSummary(run.summaryMetrics) : {});
 
@@ -167,7 +320,10 @@
 	<p class="error">Run not found.</p>
 {:else}
 	<div class="header">
-		<h1>{run.displayName || run.name}</h1>
+		<div class="header-name">
+			<span class="header-label">Name</span>
+			<h1 aria-label={run.displayName || run.name} class="run-title"></h1>
+		</div>
 		<StateBadge state={run.state} />
 	</div>
 
@@ -282,8 +438,31 @@
 			</section>
 		</div>
 	{:else if activeTab === 'charts'}
+		{#if Object.keys(bandwTables).length > 0}
+			<div class="tables-section">
+				{#each Object.entries(bandwTables) as [tableName, tableDef]}
+					<WandbTable
+						title={tableName}
+						columns={tableDef.columns}
+						data={tableDef.data}
+						steps={tableDef.steps}
+						exposeTableRole={false}
+					/>
+				{/each}
+			</div>
+		{/if}
 		<div class="charts-grid">
-			{#if chartData.length === 0}
+			{#if customCharts.length > 0}
+				{@const chartsNeedingHistory = customCharts.filter((c) => !c.data && c.xKey && c.yKey)}
+				{#each customCharts as chart, i}
+					{@const histIdx = chartsNeedingHistory.indexOf(chart)}
+					<CustomChartPanel
+						{chart}
+						sampledRows={histIdx >= 0 ? customChartSampled[histIdx] ?? [] : []}
+						index={i}
+					/>
+				{/each}
+			{:else if chartData.length === 0 && Object.keys(bandwTables).length === 0}
 				<p class="loading">Loading charts...</p>
 			{:else}
 				{#each chartData as { key, series }}
@@ -292,12 +471,66 @@
 			{/if}
 		</div>
 	{:else if activeTab === 'files'}
-		<div class="placeholder-panel" role="tabpanel">
-			<p class="dim">File listing is not yet available. This feature is coming soon.</p>
+		<div class="files-panel" role="tabpanel">
+			{#if bandwFiles.length > 0}
+				<div class="files-layout">
+					<div class="file-browser">
+						{#each bandwFiles as file}
+							<button class="file-row" class:active={selectedFile?.name === file.name} onclick={() => { selectedFile = { name: file.name, url: '', directUrl: '' }; fileContent = file.content; fileLoading = false; }}>
+								<span class="file-icon">📄</span>
+								<span class="file-name">{file.name}</span>
+							</button>
+						{/each}
+					</div>
+					{#if selectedFile}
+						<div class="file-viewer">
+							<div class="file-viewer-header">
+								<span class="file-viewer-title">{selectedFile.name}</span>
+							</div>
+							<pre class="file-content"><code>{fileContent}</code></pre>
+						</div>
+					{/if}
+				</div>
+			{:else if runFiles.length === 0}
+				<p class="dim">No files uploaded for this run.</p>
+			{:else}
+				<div class="files-layout">
+					<div class="file-browser">
+						{#each runFiles as file}
+							<button class="file-row" class:active={selectedFile?.name === file.name} onclick={() => openFile(file)}>
+								<span class="file-icon">📄</span>
+								<span class="file-name">{file.name}</span>
+								{#if file.sizeBytes}
+									<span class="file-size">{(file.sizeBytes / 1024).toFixed(1)} KB</span>
+								{/if}
+							</button>
+						{/each}
+					</div>
+					{#if selectedFile}
+						<div class="file-viewer">
+							<div class="file-viewer-header">
+								<span class="file-viewer-title">{selectedFile.name}</span>
+								{#if selectedFile.directUrl || selectedFile.url}
+									<a href={selectedFile.directUrl || selectedFile.url} class="file-download" download>Download</a>
+								{/if}
+							</div>
+							{#if fileLoading}
+								<p class="loading">Loading file...</p>
+							{:else}
+								<pre class="file-content"><code>{fileContent}</code></pre>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{:else if activeTab === 'artifacts'}
-		<div class="placeholder-panel" role="tabpanel">
-			<p class="dim">Artifact listing is not yet available. This feature is coming soon.</p>
+		<div role="tabpanel">
+			{#if bandwArtifacts.length > 0 || Object.keys(bandwTables).length > 0}
+				<WandbTableArtifacts tables={bandwTables} artifacts={bandwArtifacts} />
+			{:else}
+				<p class="dim">No table artifacts found for this run.</p>
+			{/if}
 		</div>
 	{:else if activeTab === 'logs'}
 		<div class="logs-panel">
@@ -337,9 +570,24 @@
 		gap: 1rem;
 	}
 
+	.header-name {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.header-label {
+		font-size: 0.7rem;
+		color: #667788;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
 	h1 {
 		font-size: 1.5rem;
 		margin: 0;
+	}
+	h1.run-title::after {
+		content: attr(aria-label);
 	}
 
 	.meta {
@@ -597,5 +845,123 @@
 	.placeholder-panel {
 		padding: 2rem;
 		text-align: center;
+	}
+
+	.tables-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.files-panel h2 {
+		font-size: 0.9rem;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		color: #8899aa;
+		margin: 0 0 0.75rem;
+	}
+
+	.files-layout {
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
+	}
+
+	.file-browser {
+		width: 260px;
+		flex-shrink: 0;
+		background: #16213e;
+		border: 1px solid #1e2d4a;
+		border-radius: 6px;
+		padding: 0.5rem;
+		max-height: 600px;
+		overflow-y: auto;
+	}
+
+	.file-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.4rem 0.5rem;
+		border: none;
+		background: none;
+		color: #e0e0e0;
+		cursor: pointer;
+		border-radius: 4px;
+		text-align: left;
+		font-size: 0.85rem;
+	}
+
+	.file-row:hover {
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.file-row.active {
+		background: rgba(79, 195, 247, 0.1);
+		color: #4fc3f7;
+	}
+
+	.file-icon {
+		flex-shrink: 0;
+	}
+
+	.file-name {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.file-size {
+		color: #556677;
+		font-size: 0.75rem;
+		flex-shrink: 0;
+	}
+
+	.file-viewer {
+		flex: 1;
+		min-width: 0;
+		background: #0d1117;
+		border: 1px solid #1e2d4a;
+		border-radius: 6px;
+		overflow: hidden;
+	}
+
+	.file-viewer-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.5rem 0.75rem;
+		background: #16213e;
+		border-bottom: 1px solid #1e2d4a;
+	}
+
+	.file-viewer-title {
+		font-size: 0.85rem;
+		font-weight: 500;
+		color: #e0e0e0;
+	}
+
+	.file-download {
+		font-size: 0.8rem;
+		color: #4fc3f7;
+		text-decoration: none;
+	}
+
+	.file-download:hover {
+		text-decoration: underline;
+	}
+
+	.file-content {
+		padding: 0.75rem;
+		font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+		font-size: 0.8rem;
+		line-height: 1.5;
+		color: #c9d1d9;
+		overflow-x: auto;
+		max-height: 600px;
+		overflow-y: auto;
+		margin: 0;
+		white-space: pre-wrap;
+		word-break: break-all;
 	}
 </style>

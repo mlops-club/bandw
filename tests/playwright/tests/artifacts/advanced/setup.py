@@ -33,7 +33,7 @@ def main() -> None:
     project = create_project("art-adv")
     log_debug(f"Creating artifacts-advanced project: {project}")
 
-    is_bandw = "localhost" in cfg.get("base_url", "") or "127.0.0.1" in cfg.get("base_url", "")
+    _is_bandw = "localhost" in cfg.get("base_url", "") or "127.0.0.1" in cfg.get("base_url", "")
 
     os.environ["WANDB_BASE_URL"] = cfg["base_url"]
     os.environ["WANDB_API_KEY"] = cfg["api_key"]
@@ -44,30 +44,35 @@ def main() -> None:
     # --- Run 0: file-structure (files, dirs, custom names) ---
     log_debug("Run 0: file-structure")
     run = wandb.init(
-        project=project, entity=entity, name="file-structure",
+        project=project,
+        entity=entity,
+        name="file-structure",
         config={"task": "construct-artifact"},
     )
 
-    if not is_bandw:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            art = wandb.Artifact("structured-dataset", type="dataset")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        art = wandb.Artifact("structured-dataset", type="dataset")
 
-            # Single file
-            single = Path(tmpdir) / "single_file.txt"
-            single.write_text("hello world")
-            art.add_file(str(single), name="renamed_file.txt")
+        # Single file
+        single = Path(tmpdir) / "single_file.txt"
+        single.write_text("hello world")
+        art.add_file(str(single), name="renamed_file.txt")
 
-            # Directory with multiple files
-            subdir = Path(tmpdir) / "images"
-            subdir.mkdir()
-            for i in range(3):
-                (subdir / f"img_{i}.png").write_bytes(b"\x89PNG" + b"\x00" * 32)
-            art.add_dir(str(subdir), name="images")
+        # Directory with multiple files
+        subdir = Path(tmpdir) / "images"
+        subdir.mkdir()
+        for i in range(3):
+            (subdir / f"img_{i}.png").write_bytes(b"\x89PNG" + b"\x00" * 32)
+        art.add_dir(str(subdir), name="images")
 
-            run.log_artifact(art)
-            artifacts.append(ArtifactInfo(
-                name="structured-dataset", type="dataset", version="v0",
-            ))
+        run.log_artifact(art)
+        artifacts.append(
+            ArtifactInfo(
+                name="structured-dataset",
+                type="dataset",
+                version="v0",
+            )
+        )
 
     runs.append(RunInfo(id=run.id, name=run.name, display_name="file-structure"))
     run.finish()
@@ -75,20 +80,25 @@ def main() -> None:
     # --- Run 1: alias-producer (custom aliases) ---
     log_debug("Run 1: alias-producer")
     run = wandb.init(
-        project=project, entity=entity, name="alias-producer",
+        project=project,
+        entity=entity,
+        name="alias-producer",
         config={"task": "alias-test"},
     )
 
-    if not is_bandw:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            weights = Path(tmpdir) / "model.pt"
-            weights.write_bytes(b"\x00" * 128)
-            art = wandb.Artifact("aliased-model", type="model")
-            art.add_file(str(weights), name="model.pt")
-            run.log_artifact(art, aliases=["latest", "best-model", "production"])
-            artifacts.append(ArtifactInfo(
-                name="aliased-model", type="model", version="v0",
-            ))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        weights = Path(tmpdir) / "model.pt"
+        weights.write_bytes(b"\x00" * 128)
+        art = wandb.Artifact("aliased-model", type="model")
+        art.add_file(str(weights), name="model.pt")
+        run.log_artifact(art, aliases=["latest", "best-model", "production"])
+        artifacts.append(
+            ArtifactInfo(
+                name="aliased-model",
+                type="model",
+                version="v0",
+            )
+        )
 
     runs.append(RunInfo(id=run.id, name=run.name, display_name="alias-producer"))
     run.finish()
@@ -97,55 +107,73 @@ def main() -> None:
     for v_idx in range(3):
         log_debug(f"Run {v_idx + 2}: version-producer-v{v_idx}")
         run = wandb.init(
-            project=project, entity=entity, name=f"version-producer-v{v_idx}",
+            project=project,
+            entity=entity,
+            name=f"version-producer-v{v_idx}",
             config={"version": v_idx},
         )
 
-        if not is_bandw:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                data = Path(tmpdir) / "data.json"
-                data.write_text(json.dumps({"version": v_idx, "rows": 100 * (v_idx + 1)}))
-                art = wandb.Artifact("versioned-data", type="dataset", metadata={
+        with tempfile.TemporaryDirectory() as tmpdir:
+            data = Path(tmpdir) / "data.json"
+            data.write_text(json.dumps({"version": v_idx, "rows": 100 * (v_idx + 1)}))
+            art = wandb.Artifact(
+                "versioned-data",
+                type="dataset",
+                metadata={
                     "row_count": 100 * (v_idx + 1),
                     "version_note": f"auto-increment v{v_idx}",
-                })
-                art.add_file(str(data), name="data.json")
-                run.log_artifact(art)
-                artifacts.append(ArtifactInfo(
-                    name="versioned-data", type="dataset", version=f"v{v_idx}",
-                ))
+                },
+            )
+            art.add_file(str(data), name="data.json")
+            run.log_artifact(art)
+            artifacts.append(
+                ArtifactInfo(
+                    name="versioned-data",
+                    type="dataset",
+                    version=f"v{v_idx}",
+                )
+            )
 
-        runs.append(RunInfo(
-            id=run.id, name=run.name,
-            display_name=f"version-producer-v{v_idx}",
-        ))
+        runs.append(
+            RunInfo(
+                id=run.id,
+                name=run.name,
+                display_name=f"version-producer-v{v_idx}",
+            )
+        )
         run.finish()
 
     # --- Run 5: metadata-producer (artifact with metadata and description) ---
     log_debug("Run 5: metadata-producer")
     run = wandb.init(
-        project=project, entity=entity, name="metadata-producer",
+        project=project,
+        entity=entity,
+        name="metadata-producer",
         config={"task": "metadata-test"},
     )
 
-    if not is_bandw:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            f = Path(tmpdir) / "config.yaml"
-            f.write_text("key: value\n")
-            art = wandb.Artifact(
-                "metadata-artifact", type="dataset",
-                description="An artifact with rich metadata for testing.",
-                metadata={
-                    "framework": "pytorch",
-                    "dataset_size": 50000,
-                    "split": "train",
-                },
+    with tempfile.TemporaryDirectory() as tmpdir:
+        f = Path(tmpdir) / "config.yaml"
+        f.write_text("key: value\n")
+        art = wandb.Artifact(
+            "metadata-artifact",
+            type="dataset",
+            description="An artifact with rich metadata for testing.",
+            metadata={
+                "framework": "pytorch",
+                "dataset_size": 50000,
+                "split": "train",
+            },
+        )
+        art.add_file(str(f), name="config.yaml")
+        run.log_artifact(art)
+        artifacts.append(
+            ArtifactInfo(
+                name="metadata-artifact",
+                type="dataset",
+                version="v0",
             )
-            art.add_file(str(f), name="config.yaml")
-            run.log_artifact(art)
-            artifacts.append(ArtifactInfo(
-                name="metadata-artifact", type="dataset", version="v0",
-            ))
+        )
 
     runs.append(RunInfo(id=run.id, name=run.name, display_name="metadata-producer"))
     run.finish()
@@ -153,29 +181,41 @@ def main() -> None:
     # --- Run 6: deletable-producer (artifact to delete in test) ---
     log_debug("Run 6: deletable-producer")
     run = wandb.init(
-        project=project, entity=entity, name="deletable-producer",
+        project=project,
+        entity=entity,
+        name="deletable-producer",
         config={"task": "delete-test"},
     )
 
-    if not is_bandw:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            for v_idx in range(2):
-                f = Path(tmpdir) / f"file_v{v_idx}.txt"
-                f.write_text(f"delete me v{v_idx}")
-                art = wandb.Artifact("deletable-data", type="dataset")
-                art.add_file(str(f), name=f"file_v{v_idx}.txt")
-                run.log_artifact(art)
-                artifacts.append(ArtifactInfo(
-                    name="deletable-data", type="dataset", version=f"v{v_idx}",
-                ))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for v_idx in range(2):
+            f = Path(tmpdir) / f"file_v{v_idx}.txt"
+            f.write_text(f"delete me v{v_idx}")
+            art = wandb.Artifact("deletable-data", type="dataset")
+            art.add_file(str(f), name=f"file_v{v_idx}.txt")
+            run.log_artifact(art)
+            artifacts.append(
+                ArtifactInfo(
+                    name="deletable-data",
+                    type="dataset",
+                    version=f"v{v_idx}",
+                )
+            )
 
-    runs.append(RunInfo(
-        id=run.id, name=run.name, display_name="deletable-producer",
-    ))
+    runs.append(
+        RunInfo(
+            id=run.id,
+            name=run.name,
+            display_name="deletable-producer",
+        )
+    )
     run.finish()
 
     manifest = Manifest(
-        project=project, entity=entity, runs=runs, artifacts=artifacts,
+        project=project,
+        entity=entity,
+        runs=runs,
+        artifacts=artifacts,
     )
     output_manifest(manifest)
     log_debug("Artifacts-advanced setup complete.")

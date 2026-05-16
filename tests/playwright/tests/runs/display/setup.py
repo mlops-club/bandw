@@ -155,7 +155,7 @@ def main() -> None:
         name="eta-forked",
         config={"lr": 0.005, "arch": "resnet18", "batch_size": 32, "optimizer": "adam"},
         tags=["forked"],
-        fork_from=f"{entity}/{project}/{source_run.id}?_step=15",
+        fork_from=f"{source_run.id}?_step=15",
     )
     for step in range(15):
         t = step / 14

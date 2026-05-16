@@ -14,6 +14,7 @@ export default defineConfig({
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    video: 'on',
   },
   projects: [
     {
@@ -23,6 +24,7 @@ export default defineConfig({
     {
       name: 'bandw',
       use: { baseURL: 'http://localhost:5173' },
+      outputDir: 'test-videos/bandw',
       timeout: 15_000, // Local server — fast timeouts
     },
     {
@@ -31,6 +33,7 @@ export default defineConfig({
         baseURL: 'https://REMOVED',
         ...(hasWandbAuth ? { storageState: wandbAuthFile } : {}),
       },
+      outputDir: 'test-videos/wandb',
       timeout: 60_000, // Remote — slower
       dependencies: hasWandbAuth ? [] : ['wandb-auth-setup'],
     },

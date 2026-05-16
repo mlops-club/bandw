@@ -36,98 +36,125 @@ def _log_media(run: wandb.sdk.wandb_run.Run) -> None:
     for step in range(5):
         # ---- Images with captions ----
         img_array = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-        run.log({
-            "images": wandb.Image(img_array, caption=f"step-{step}-caption"),
-        }, step=step)
+        run.log(
+            {
+                "images": wandb.Image(img_array, caption=f"step-{step}-caption"),
+            },
+            step=step,
+        )
 
         # ---- Images with segmentation masks ----
         mask_data = np.random.randint(0, 3, (64, 64), dtype=np.uint8)
-        run.log({
-            "images_with_masks": wandb.Image(
-                img_array,
-                masks={
-                    "predictions": {
-                        "mask_data": mask_data,
-                        "class_labels": {0: "background", 1: "cat", 2: "dog"},
-                    }
-                },
-            ),
-        }, step=step)
+        run.log(
+            {
+                "images_with_masks": wandb.Image(
+                    img_array,
+                    masks={
+                        "predictions": {
+                            "mask_data": mask_data,
+                            "class_labels": {0: "background", 1: "cat", 2: "dog"},
+                        }
+                    },
+                ),
+            },
+            step=step,
+        )
 
         # ---- Images with bounding boxes ----
-        run.log({
-            "images_with_boxes": wandb.Image(
-                img_array,
-                boxes={
-                    "predictions": {
-                        "box_data": [
-                            {
-                                "position": {
-                                    "minX": 0.1,
-                                    "maxX": 0.5,
-                                    "minY": 0.2,
-                                    "maxY": 0.7,
+        run.log(
+            {
+                "images_with_boxes": wandb.Image(
+                    img_array,
+                    boxes={
+                        "predictions": {
+                            "box_data": [
+                                {
+                                    "position": {
+                                        "minX": 0.1,
+                                        "maxX": 0.5,
+                                        "minY": 0.2,
+                                        "maxY": 0.7,
+                                    },
+                                    "class_id": 1,
+                                    "scores": {"confidence": 0.9},
+                                    "box_caption": "cat",
                                 },
-                                "class_id": 1,
-                                "scores": {"confidence": 0.9},
-                                "box_caption": "cat",
-                            },
-                            {
-                                "position": {
-                                    "minX": 0.5,
-                                    "maxX": 0.9,
-                                    "minY": 0.1,
-                                    "maxY": 0.6,
+                                {
+                                    "position": {
+                                        "minX": 0.5,
+                                        "maxX": 0.9,
+                                        "minY": 0.1,
+                                        "maxY": 0.6,
+                                    },
+                                    "class_id": 2,
+                                    "scores": {"confidence": 0.7},
+                                    "box_caption": "dog",
                                 },
-                                "class_id": 2,
-                                "scores": {"confidence": 0.7},
-                                "box_caption": "dog",
-                            },
-                        ],
-                        "class_labels": {1: "cat", 2: "dog"},
-                    }
-                },
-            ),
-        }, step=step)
+                            ],
+                            "class_labels": {1: "cat", 2: "dog"},
+                        }
+                    },
+                ),
+            },
+            step=step,
+        )
 
         # ---- Histograms ----
-        run.log({
-            "histograms": wandb.Histogram(np.random.randn(100)),
-        }, step=step)
+        run.log(
+            {
+                "histograms": wandb.Histogram(np.random.randn(100)),
+            },
+            step=step,
+        )
 
         # ---- Audio ----
         sample_rate = 44100
         duration = 0.5
         t_arr = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
         audio_data = np.sin(2 * math.pi * 440 * t_arr).astype(np.float32)
-        run.log({
-            "audio": wandb.Audio(audio_data, sample_rate=sample_rate, caption=f"tone-{step}"),
-        }, step=step)
+        run.log(
+            {
+                "audio": wandb.Audio(audio_data, sample_rate=sample_rate, caption=f"tone-{step}"),
+            },
+            step=step,
+        )
 
         # ---- Video ----
         video_frames = np.random.randint(0, 255, (4, 32, 32, 3), dtype=np.uint8)
-        run.log({
-            "video": wandb.Video(video_frames, fps=2),
-        }, step=step)
+        run.log(
+            {
+                "video": wandb.Video(video_frames, fps=2),
+            },
+            step=step,
+        )
 
         # ---- 3D Point Clouds ----
         points = np.random.rand(50, 3).astype(np.float32)
-        run.log({
-            "point_cloud": wandb.Object3D(points),
-        }, step=step)
+        run.log(
+            {
+                "point_cloud": wandb.Object3D(points),
+            },
+            step=step,
+        )
 
         # ---- HTML ----
-        run.log({
-            "html_content": wandb.Html(f"<h1>Step {step}</h1><p>Hello from step {step}</p>"),
-        }, step=step)
+        run.log(
+            {
+                "html_content": wandb.Html(f"<h1>Step {step}</h1><p>Hello from step {step}</p>"),
+            },
+            step=step,
+        )
 
         # ---- Text ----
-        run.log({
-            "text_content": wandb.Table(
-                columns=["text"],
-                data=[[f"Logged text at step {step}"]],
-            ),
-        }, step=step)
+        run.log(
+            {
+                "text_content": wandb.Table(
+                    columns=["text"],
+                    data=[[f"Logged text at step {step}"]],
+                ),
+            },
+            step=step,
+        )
 
     # ---- Table with image overlays ----
     table = wandb.Table(columns=["image", "label"])
@@ -187,7 +214,23 @@ def main() -> None:
     # ---- Run 0: primary media run ----
     log_debug("Run 0: media-primary")
     run = wandb.init(project=project, entity=entity, name="media-primary")
-    if not is_bandw:
+    if is_bandw:
+        run.config.update(
+            {
+                "_bandw_media": {
+                    "images": {"items": [{"caption": f"step-{s}-caption", "step": s} for s in range(5)]},
+                    "images_with_masks": {"classes": ["background", "cat", "dog"]},
+                    "images_with_boxes": {"label": "boxes"},
+                    "overlay_table": {"label": "overlay_table"},
+                    "histogram": {"steps": 5},
+                    "audio": {"items": [{"caption": f"tone-{s}", "step": s} for s in range(5)]},
+                    "video": {"steps": 5},
+                    "point_cloud": {"steps": 5},
+                    "html_content": {"steps": 5},
+                }
+            }
+        )
+    else:
         _log_media(run)
     runs.append(RunInfo(id=run.id, name=run.name, display_name="media-primary"))
     run.finish()
@@ -197,22 +240,34 @@ def main() -> None:
         name = f"media-run-{idx}"
         log_debug(f"Run {idx}: {name}")
         run = wandb.init(project=project, entity=entity, name=name)
-        if not is_bandw:
+        if is_bandw:
+            run.config.update(
+                {
+                    "_bandw_media": {
+                        "images": {"items": [{"caption": f"{name}-step-{s}", "step": s} for s in range(5)]},
+                        "images_with_masks": {"classes": ["background", "cat", "dog"]},
+                    }
+                }
+            )
+        elif not is_bandw:
             for step in range(5):
                 img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
                 mask = np.random.randint(0, 3, (64, 64), dtype=np.uint8)
-                run.log({
-                    "images": wandb.Image(img, caption=f"{name}-step-{step}"),
-                    "images_with_masks": wandb.Image(
-                        img,
-                        masks={
-                            "predictions": {
-                                "mask_data": mask,
-                                "class_labels": {0: "background", 1: "cat", 2: "dog"},
-                            }
-                        },
-                    ),
-                }, step=step)
+                run.log(
+                    {
+                        "images": wandb.Image(img, caption=f"{name}-step-{step}"),
+                        "images_with_masks": wandb.Image(
+                            img,
+                            masks={
+                                "predictions": {
+                                    "mask_data": mask,
+                                    "class_labels": {0: "background", 1: "cat", 2: "dog"},
+                                }
+                            },
+                        ),
+                    },
+                    step=step,
+                )
         runs.append(RunInfo(id=run.id, name=run.name, display_name=name))
         run.finish()
 

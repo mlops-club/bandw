@@ -62,19 +62,38 @@ def main() -> None:
         for step in range(20):
             t = step / 19
             noise = random.gauss(0, 0.02)
-            run.log({
-                "train/loss": 2.0 * math.exp(-3.0 * t * (1 + idx * 0.1)) + noise,
-                "train/acc": min(0.98, 0.55 + 0.40 * (1 - math.exp(-3.0 * t)) + noise),
-            })
+            run.log(
+                {
+                    "train/loss": 2.0 * math.exp(-3.0 * t * (1 + idx * 0.1)) + noise,
+                    "train/acc": min(0.98, 0.55 + 0.40 * (1 - math.exp(-3.0 * t)) + noise),
+                }
+            )
 
         # Log a wandb.Table for query-panel expressions
-        if not is_bandw:
+        table_data = [
+            [
+                e,
+                round(2.0 * math.exp(-0.15 * e) + random.gauss(0, 0.01), 4),
+                round(min(0.98, 0.5 + 0.04 * e), 4),
+                rc.get("model", "unknown"),
+            ]
+            for e in range(10)
+        ]
+        if is_bandw:
+            run.config.update(
+                {
+                    "_bandw_tables": {
+                        "results_table": {
+                            "columns": ["epoch", "loss", "accuracy", "model"],
+                            "data": table_data,
+                        }
+                    }
+                }
+            )
+        else:
             table = wandb.Table(
                 columns=["epoch", "loss", "accuracy", "model"],
-                data=[
-                    [e, 2.0 * math.exp(-0.15 * e) + random.gauss(0, 0.01), min(0.98, 0.5 + 0.04 * e), rc.get("model", "unknown")]
-                    for e in range(10)
-                ],
+                data=table_data,
             )
             run.log({"results_table": table})
 

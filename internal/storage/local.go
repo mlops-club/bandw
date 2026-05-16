@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +11,27 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
+// extraMIMETypes maps file extensions that Go's mime package may not know about.
+var extraMIMETypes = map[string]string{
+	".yaml":  "application/x-yaml",
+	".yml":   "application/x-yaml",
+	".py":    "text/x-python",
+	".log":   "text/plain",
+	".jsonl": "application/jsonlines",
+}
+
+// contentTypeForPath returns a MIME type based on the file extension.
+func contentTypeForPath(name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	if ct, ok := extraMIMETypes[ext]; ok {
+		return ct
+	}
+	if ct := mime.TypeByExtension(ext); ct != "" {
+		return ct
+	}
+	return "application/octet-stream"
+}
 
 // LocalStorage stores artifact files on the local filesystem.
 type LocalStorage struct {
@@ -95,7 +117,7 @@ func (s *LocalStorage) UploadHandler() http.HandlerFunc {
 	}
 }
 
-// DownloadHandler returns an http.HandlerFunc for GET /storage/{storagePath...}
+// DownloadHandler returns an http.HandlerFunc for GET/HEAD /storage/{storagePath...}
 func (s *LocalStorage) DownloadHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		storagePath := chi.URLParam(r, "*")
@@ -103,7 +125,14 @@ func (s *LocalStorage) DownloadHandler() http.HandlerFunc {
 			http.Error(w, "missing storage path", http.StatusBadRequest)
 			return
 		}
-		rc, err := s.Open(storagePath)
+
+		fullPath, err := s.validatePath(storagePath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		f, err := os.Open(fullPath) //#nosec G304 -- path validated by validatePath above
 		if err != nil {
 			if os.IsNotExist(err) {
 				http.Error(w, "not found", http.StatusNotFound)
@@ -112,8 +141,16 @@ func (s *LocalStorage) DownloadHandler() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer rc.Close()
-		w.Header().Set("Content-Type", "application/octet-stream")
-		_, _ = io.Copy(w, rc)
+		defer f.Close()
+
+		stat, err := f.Stat()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", contentTypeForPath(storagePath))
+		// http.ServeContent handles GET, HEAD, range requests, and Content-Length.
+		http.ServeContent(w, r, "", stat.ModTime(), f)
 	}
 }

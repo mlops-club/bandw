@@ -40,7 +40,9 @@ def main() -> None:
     # --- Run 0: basic-run (for simple report tests) ---
     log_debug("Run 0: basic-run")
     run = wandb.init(
-        project=project, entity=entity, name="basic-run",
+        project=project,
+        entity=entity,
+        name="basic-run",
         config={"lr": 0.01, "arch": "resnet18", "batch_size": 32},
         tags=["baseline"],
     )
@@ -65,7 +67,9 @@ def main() -> None:
         name = rc.pop("name")
         log_debug(f"Run {idx + 1}: {name}")
         run = wandb.init(
-            project=project, entity=entity, name=name,
+            project=project,
+            entity=entity,
+            name=name,
             config=rc,
             tags=["experiment", f"group-{idx % 2}"],
         )
@@ -73,15 +77,61 @@ def main() -> None:
             t = step / 29
             noise = random.gauss(0, 0.02)
             base_loss = 2.0 * math.exp(-3.0 * t * (1 + idx * 0.1))
-            run.log({
-                "train/loss": base_loss + 0.05 + noise,
-                "train/acc": min(0.98, 0.60 + 0.35 * (1 - math.exp(-3.0 * t)) + noise),
-                "val/loss": base_loss * 1.1 + 0.08 + noise,
-                "val/acc": min(0.96, 0.55 + 0.35 * (1 - math.exp(-2.5 * t)) + noise),
-            })
+            run.log(
+                {
+                    "train/loss": base_loss + 0.05 + noise,
+                    "train/acc": min(0.98, 0.60 + 0.35 * (1 - math.exp(-3.0 * t)) + noise),
+                    "val/loss": base_loss * 1.1 + 0.08 + noise,
+                    "val/acc": min(0.96, 0.55 + 0.35 * (1 - math.exp(-2.5 * t)) + noise),
+                }
+            )
         run.summary["best_val_acc"] = 0.90 + idx * 0.02
         runs.append(RunInfo(id=run.id, name=run.name, display_name=name))
         run.finish()
+
+    # --- Create a report via GraphQL API for create-from-api test ---
+    is_bandw = "localhost" in cfg.get("base_url", "") or "127.0.0.1" in cfg.get("base_url", "")
+    if is_bandw:
+        import base64
+        import json as json_mod
+        import urllib.request
+
+        api_url = cfg["base_url"].rstrip("/") + "/graphql"
+        mutation = json_mod.dumps(
+            {
+                "query": """
+                mutation($input: UpsertViewInput!) {
+                    upsertView(input: $input) {
+                        view { id name displayName }
+                    }
+                }
+            """,
+                "variables": {
+                    "input": {
+                        "entityName": entity,
+                        "projectName": project,
+                        "displayName": "API Report",
+                        "type": "runs",
+                        "spec": json_mod.dumps({"content": "Report created via API", "blocks": []}),
+                    }
+                },
+            }
+        ).encode()
+        auth_str = base64.b64encode(f"api:{cfg['api_key']}".encode()).decode()
+        req = urllib.request.Request(  # noqa: S310
+            api_url,
+            data=mutation,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Basic {auth_str}",
+            },
+        )
+        try:
+            resp = urllib.request.urlopen(req)  # noqa: S310
+            result = json_mod.loads(resp.read())
+            log_debug(f"Created API report: {result}")
+        except Exception as e:
+            log_debug(f"Warning: could not create report via API: {e}")
 
     manifest = Manifest(project=project, entity=entity, runs=runs)
     output_manifest(manifest)

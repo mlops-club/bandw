@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { queryStore, getContextClient } from '@urql/svelte';
-	import { RUNS_QUERY, SAMPLED_HISTORY_QUERY } from '$lib/graphql/queries';
+	import { RUNS_QUERY, SAMPLED_HISTORY_QUERY, ALL_VIEWS_QUERY, UPSERT_VIEW_MUTATION, DELETE_VIEW_MUTATION } from '$lib/graphql/queries';
 	import { getColor } from '$lib/utils/colors';
 	import StateBadge from '$lib/components/StateBadge.svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import ParameterImportance from '$lib/components/ParameterImportance.svelte';
+	import QueryPanel from '$lib/components/QueryPanel.svelte';
+	import MediaPanel from '$lib/components/MediaPanel.svelte';
+	import FullScreenPanel from '$lib/components/FullScreenPanel.svelte';
+	import PanelEditModal from '$lib/components/PanelEditModal.svelte';
 
 	const client = getContextClient();
 	const entity = $derived(page.params.entity);
@@ -71,7 +76,6 @@
 	let settingsSubTab: 'data' | 'display' = $state('data');
 	let showSectionSettings: Record<string, boolean> = $state({});
 	let showPanelEdit = $state(false);
-	let panelEditTab: 'data' | 'grouping' | 'chart' | 'legend' | 'expressions' = $state('data');
 	let keysDiscovered = $state(false);
 	let layoutMode: 'automated' | 'manual' = $state('automated');
 	let sectionOrg: 'first' | 'last' = $state('first');
@@ -105,6 +109,7 @@
 
 	// Report creation
 	let showCreateReport = $state(false);
+	let showSendToReport = $state(false);
 
 	// Panel picker
 	let showPanelPicker = $state(false);
@@ -138,6 +143,8 @@
 
 	// Panel state
 	let showPanelMenu: string | null = $state(null);
+	let fullScreenPanel: string | null = $state(null);
+	let fullScreenSeries: any[] = $state([]);
 	let deletedPanels: Set<string> = $state(new Set());
 	let duplicatedPanels: string[] = $state([]);
 
@@ -171,17 +178,55 @@
 	let showSaveConfirm = $state(false);
 	let newViewName = $state('');
 
-	// Load saved views from localStorage on init
+	// Load saved views from GraphQL
+	const viewsResult = $derived(
+		queryStore({
+			client,
+			query: ALL_VIEWS_QUERY,
+			variables: { entityName: entity, projectName: project, viewType: 'workspace' }
+		})
+	);
+
+	// Sync backend views to local state
 	$effect(() => {
-		const stored = localStorage.getItem(`bandw-views-${entity}-${project}`);
-		if (stored) {
-			try { savedViews = JSON.parse(stored); } catch {}
+		const backendViews = $viewsResult.data?.project?.allViews?.edges?.map((e: { node: { id: string; name: string; displayName: string } }) => ({
+			id: e.node.id,
+			name: e.node.displayName || e.node.name || 'Untitled'
+		})) ?? [];
+		if (backendViews.length > 0 && savedViews.length === 0) {
+			savedViews = backendViews;
 		}
 	});
 
-	function persistViews(views: { name: string }[]) {
+	async function persistViews(views: { name: string; id?: string }[]) {
 		savedViews = views;
+		// Also persist to localStorage as fallback
 		localStorage.setItem(`bandw-views-${entity}-${project}`, JSON.stringify(views));
+	}
+
+	async function saveViewToBackend(viewName: string) {
+		const spec = JSON.stringify({
+			deletedPanels: Array.from(deletedPanels),
+			duplicatedPanels,
+			sectionNames,
+			deletedSections: Array.from(deletedSections),
+			layoutMode,
+			sectionOrg,
+		});
+		const result = await client.mutation(UPSERT_VIEW_MUTATION, {
+			input: {
+				entityName: entity,
+				projectName: project,
+				displayName: viewName,
+				type: 'workspace',
+				spec,
+			}
+		}).toPromise();
+		return result;
+	}
+
+	async function deleteViewFromBackend(viewId: string) {
+		await client.mutation(DELETE_VIEW_MUTATION, { input: { id: viewId } }).toPromise();
 	}
 
 	// Undo/Redo
@@ -240,6 +285,25 @@
 			return out;
 		} catch { return {}; }
 	}
+
+	// Parse _bandw_media from run configs — merge all runs' media configs
+	const bandwMedia = $derived.by(() => {
+		let merged: Record<string, unknown> | null = null;
+		for (const run of runs) {
+			try {
+				const parsed = JSON.parse(run.config || '{}');
+				const media = parsed['_bandw_media'];
+				if (media) {
+					const val = typeof media === 'object' && 'value' in media ? media.value : media;
+					if (val && typeof val === 'object') {
+						if (!merged) merged = {};
+						Object.assign(merged, val);
+					}
+				}
+			} catch { /* skip */ }
+		}
+		return merged;
+	});
 
 	// Filtered runs based on search
 	const filteredRuns = $derived.by(() => {
@@ -341,11 +405,24 @@
 		});
 	});
 
+	// Also use summary metric keys as immediate panel source
+	const immediateMetricKeys = $derived.by(() => {
+		if (allMetricKeys.length > 0) return allMetricKeys;
+		return summaryMetricKeys;
+	});
+
+	// Build complete charts list including summary metric keys as fallback
+	const allCharts = $derived.by(() => {
+		if (chartsByMetric.length > 0) return chartsByMetric;
+		// Use summary metric keys as early panel placeholders
+		return summaryMetricKeys.map((key) => ({ key, series: [] as { label: string; color: string; data: { x: number; y: number }[] }[] }));
+	});
+
 	// Group charts by prefix (e.g., "train/loss" -> section "train")
 	type ChartSection = { name: string; charts: typeof chartsByMetric };
 	const chartSections = $derived.by((): ChartSection[] => {
 		const groups: Record<string, typeof chartsByMetric> = {};
-		for (const chart of chartsByMetric) {
+		for (const chart of allCharts) {
 			const slashIdx = sectionOrg === 'first'
 				? chart.key.indexOf('/')
 				: chart.key.lastIndexOf('/');
@@ -397,7 +474,7 @@
 	<button class="toolbar-btn" aria-label="Undo last action" onclick={undo} disabled={undoStack.length === 0}>Undo</button>
 	<button class="toolbar-btn" aria-label="Redo last action" onclick={redo} disabled={redoStack.length === 0}>Redo</button>
 	<div class="toolbar-spacer"></div>
-	<input type="search" class="panel-search" placeholder="Search panels with regex" role="searchbox" />
+	<input type="search" class="search-panels-input" placeholder="Search panels with regex" role="searchbox" />
 	<div class="workspace-actions-wrapper">
 		{#if !showCreateReport}
 		<button class="toolbar-btn" onclick={() => showCreateReport = true}>Create report</button>
@@ -428,6 +505,14 @@
 			<button class="picker-category" class:active={panelPickerCategory === 'evaluation'} onclick={() => panelPickerCategory = 'evaluation'}>Evaluation</button>
 			<button class="picker-category" class:active={panelPickerCategory === 'media'} onclick={() => panelPickerCategory = 'media'}>Media</button>
 		</div>
+		<div class="picker-items picker-all-types">
+			<button class="picker-item" onclick={() => {
+				addedPanels = [...addedPanels, 'query-panel'];
+				showPanelPicker = false;
+				panelPickerCategory = '';
+				selectedPanelType = '';
+			}}>Query Panel</button>
+		</div>
 		{#if panelPickerCategory === 'quick-add'}
 			<div class="picker-items quick-add-list">
 				{#each allMetricKeys as key}
@@ -444,7 +529,20 @@
 			</div>
 		{:else if panelPickerCategory === 'evaluation'}
 			<div class="picker-items">
-				<button class="picker-item" class:selected={selectedPanelType === 'parameter-importance'} onclick={() => selectedPanelType = 'parameter-importance'}>Parameter Importance</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'parameter-importance'} onclick={() => {
+					selectedPanelType = 'parameter-importance';
+					addedPanels = [...addedPanels, 'parameter-importance'];
+					showPanelPicker = false;
+					panelPickerCategory = '';
+					selectedPanelType = '';
+				}}>Parameter Importance</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'query-panel'} onclick={() => {
+					selectedPanelType = 'query-panel';
+					addedPanels = [...addedPanels, 'query-panel'];
+					showPanelPicker = false;
+					panelPickerCategory = '';
+					selectedPanelType = '';
+				}}>Query Panel</button>
 				<button class="picker-item" class:selected={selectedPanelType === 'confusion-matrix'} onclick={() => selectedPanelType = 'confusion-matrix'}>Confusion Matrix</button>
 			</div>
 		{:else if panelPickerCategory === 'charts'}
@@ -452,6 +550,7 @@
 				<button class="picker-item" class:selected={selectedPanelType === 'line-plot'} onclick={() => selectedPanelType = 'line-plot'}>Line Plot</button>
 				<button class="picker-item" class:selected={selectedPanelType === 'bar-chart'} onclick={() => selectedPanelType = 'bar-chart'}>Bar Chart</button>
 				<button class="picker-item" class:selected={selectedPanelType === 'scatter-plot'} onclick={() => selectedPanelType = 'scatter-plot'}>Scatter Plot</button>
+				<button class="picker-item" class:selected={selectedPanelType === 'code-comparer'} onclick={() => selectedPanelType = 'code-comparer'}>Code Comparer</button>
 			</div>
 		{:else if panelPickerCategory === 'media'}
 			<div class="picker-items">
@@ -483,8 +582,9 @@
 		</label>
 		<div class="dialog-actions">
 			<button onclick={() => showSaveViewDialog = false}>Cancel</button>
-			<button class="primary" onclick={() => {
+			<button class="primary" onclick={async () => {
 				if (newViewName) {
+					await saveViewToBackend(newViewName);
 					persistViews([...savedViews, { name: newViewName }]);
 					activeViewName = newViewName;
 					newViewName = '';
@@ -536,7 +636,7 @@
 				<button onclick={() => showCreateReport = false}>Cancel</button>
 				<button class="primary" onclick={() => {
 					showCreateReport = false;
-					window.location.href = `/${entity}/${project}/reportlist`;
+					goto(`/${entity}/${project}/reportlist?create=1`);
 				}}>Create report</button>
 			</div>
 		</div>
@@ -743,6 +843,10 @@
 		{/if}
 
 		<div class="charts-area">
+			{#if bandwMedia}
+				<MediaPanel media={bandwMedia} runNames={runs.map((r: { name: string; displayName?: string }) => r.displayName || r.name)} />
+			{/if}
+
 			{#if layoutMode === 'manual'}
 				<p class="loading">Manual mode — add panels to get started.</p>
 			{:else if chartSections.length === 0}
@@ -806,16 +910,21 @@
 									<label>
 										<input type="checkbox" aria-label="Full run names" /> Full run names on primary tooltips
 									</label>
+									<label>
+										Panels per page
+										<input type="number" aria-label="panels per page" value="20" min="1" max="100" />
+									</label>
 								</div>
 							</div>
 						{/if}
 						{#if !collapsedSections[section.name]}
 							<div class="charts-grid">
 								{#each section.charts as { key, series }}
-									{#if series.length > 0 && !deletedPanels.has(key)}
-										<div class="chart-wrapper">
+									{#if !deletedPanels.has(key)}
+										<div class="chart-wrapper panel">
 											<div class="chart-actions">
-												<button class="chart-btn" aria-label="View full screen" onclick={() => {}}>⛶</button>
+												<button class="chart-btn" aria-label="Drag panel" style="cursor: grab;">☰</button>
+												<button class="chart-btn" aria-label="View full screen" onclick={() => { fullScreenPanel = key; fullScreenSeries = series; }}>⛶</button>
 												<div class="panel-menu-wrapper">
 												<button class="chart-btn panel-actions-btn" aria-label="More panel actions" onclick={() => { showPanelMenu = showPanelMenu === key ? null : key }}>⋮</button>
 													<button class="chart-btn" aria-label="Edit panel" onclick={() => showPanelEdit = true}>⋯</button>
@@ -825,14 +934,14 @@
 															<button role="menuitem" onclick={() => deletePanel(key)}>Delete panel</button>
 															<button role="menuitem" onclick={() => duplicatePanel(key)}>Duplicate panel</button>
 															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Move to section</button>
-															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>View full screen</button>
+															<button role="menuitem" onclick={() => { fullScreenPanel = key; fullScreenSeries = series; showPanelMenu = null; }}>View full screen</button>
 															<button role="menuitem" onclick={async () => {
 																const url = `${window.location.origin}/${entity}/${project}/workspace?panel=${encodeURIComponent(key)}`;
 																try { await navigator.clipboard.writeText(url); } catch {}
 																showPanelMenu = null;
 																showToast('Copied panel URL');
 															}}>Copy panel URL</button>
-															<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Share to report</button>
+															<button role="menuitem" onclick={() => { showPanelMenu = null; showSendToReport = true; }}>Add to report</button>
 														</div>
 													{/if}
 												</div>
@@ -845,9 +954,28 @@
 							{#each duplicatedPanels.filter(k => section.charts.some(c => c.key === k)) as dupKey}
 								{@const dupChart = section.charts.find(c => c.key === dupKey)}
 								{#if dupChart && dupChart.series.length > 0}
-									<div class="chart-wrapper">
+									<div class="chart-wrapper panel">
 										<div class="chart-actions">
-											<button class="chart-btn" aria-label="Edit panel" onclick={() => showPanelEdit = true}>E</button>
+											<button class="chart-btn" aria-label="Drag panel" style="cursor: grab;">☰</button>
+											<button class="chart-btn" aria-label="View full screen" onclick={() => { fullScreenPanel = dupChart.key + ' (copy)'; fullScreenSeries = dupChart.series; }}>⛶</button>
+											<div class="panel-menu-wrapper">
+											<button class="chart-btn panel-actions-btn" aria-label="More panel actions" onclick={() => { showPanelMenu = showPanelMenu === dupKey + '-dup' ? null : dupKey + '-dup' }}>⋮</button>
+												<button class="chart-btn" aria-label="Edit panel" onclick={() => showPanelEdit = true}>⋯</button>
+												{#if showPanelMenu === dupKey + '-dup'}
+													<div class="dropdown-menu panel-dropdown" role="menu">
+														<button role="menuitem" onclick={() => { showPanelEdit = true; showPanelMenu = null; }}>Edit settings</button>
+														<button role="menuitem" onclick={() => { duplicatedPanels = duplicatedPanels.filter(k => k !== dupKey); showPanelMenu = null; }}>Delete panel</button>
+														<button role="menuitem" onclick={() => { showPanelMenu = null; }}>Move to section</button>
+														<button role="menuitem" onclick={() => { showPanelMenu = null; showSendToReport = true; }}>Add to report</button>
+														<button role="menuitem" onclick={async () => {
+															const url = `${window.location.origin}/${entity}/${project}/workspace?panel=${encodeURIComponent(dupKey + '-copy')}`;
+															try { await navigator.clipboard.writeText(url); } catch {}
+															showPanelMenu = null;
+															showToast('Copied panel URL');
+														}}>Copy panel URL</button>
+													</div>
+												{/if}
+											</div>
 										</div>
 										<LineChart title={dupChart.key + ' (copy)'} series={dupChart.series} />
 									</div>
@@ -862,6 +990,8 @@
 			{#each addedPanels as panelType}
 				{#if panelType === 'parameter-importance'}
 					<ParameterImportance {runs} />
+				{:else if panelType === 'query-panel'}
+					<QueryPanel {runs} />
 				{:else if panelType.startsWith('section-')}
 					<section aria-label="New section">
 						<div class="section-header">
@@ -879,78 +1009,32 @@
 	</div>
 {/if}
 
-{#if showPanelEdit}
-	<div class="panel-edit-overlay" onclick={() => showPanelEdit = false}>
-		<div class="panel-edit-modal" role="dialog" aria-label="Edit panel" onclick={(e) => e.stopPropagation()}>
-			<div class="panel-edit-header">
-				<h3>Edit panel</h3>
-				<button onclick={() => showPanelEdit = false}>×</button>
-			</div>
-			<div class="panel-edit-tabs" role="tablist">
-				<button role="tab" aria-selected={panelEditTab === 'data'} onclick={() => panelEditTab = 'data'}>Data</button>
-				<button role="tab" aria-selected={panelEditTab === 'grouping'} onclick={() => panelEditTab = 'grouping'}>Grouping</button>
-				<button role="tab" aria-selected={panelEditTab === 'chart'} onclick={() => panelEditTab = 'chart'}>Chart</button>
-				<button role="tab" aria-selected={panelEditTab === 'legend'} onclick={() => panelEditTab = 'legend'}>Legend</button>
-				<button role="tab" aria-selected={panelEditTab === 'expressions'} onclick={() => panelEditTab = 'expressions'}>Expressions</button>
-			</div>
-			<div class="panel-edit-content" role="tabpanel">
-				{#if panelEditTab === 'data' || true}
-					<label>
-						Y axis range
-						<input type="text" placeholder="Auto" aria-label="Y axis range" />
-					</label>
-					<label>
-						Smoothing
-						<input type="range" min="0" max="1" step="0.01" value="0" role="slider" aria-label="smoothing" />
-					</label>
-					<label>
-						X axis
-						<select><option>Step</option><option>Relative Time</option><option>Wall Time</option></select>
-					</label>
-					<button class="reset-btn" onclick={() => {}}>Reset to section defaults</button>
-				{/if}
-					{#if panelEditTab === 'grouping' || true}
-					<label>Group by <select><option>None</option><option>Run</option></select></label>
-					<label>Aggregation <select><option>Mean</option><option>Median</option><option>Min</option><option>Max</option></select></label>
-				{/if}
-					{#if panelEditTab === 'chart' || true}
-					<label>Title <input type="text" placeholder="Panel title" /></label>
-					<fieldset aria-label="Chart type">
-						<legend>Chart type</legend>
-						<div class="chart-type-options" role="listbox" aria-label="chart type">
-							<button role="option" aria-selected={true}>Line</button>
-							<button role="option">Bar chart</button>
-							<button role="option">Area</button>
-							<button role="option">Scatter</button>
-						</div>
-					</fieldset>
-				{/if}
-					{#if panelEditTab === 'legend' || true}
-					<label>Legend template <input type="text" placeholder="{'$'}{'{run:displayName}'}" /></label>
-				{/if}
-					{#if panelEditTab === 'expressions' || true}
-					<label>Y-axis expression <input type="text" placeholder="e.g., loss * 100" /></label>
-				{/if}
-			</div>
-			<div class="panel-edit-footer">
-				<div class="panel-edit-actions">
-					<button role="menuitem" onclick={() => {
-						const keys = allMetricKeys;
-						if (keys.length > 0) deletePanel(keys[0]);
-						showPanelEdit = false;
-					}}>Delete panel</button>
-				</div>
-				<div class="panel-edit-buttons">
-					<button onclick={() => showPanelEdit = false}>Cancel</button>
-					<button class="primary" onclick={() => showPanelEdit = false}>Apply</button>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
+<PanelEditModal show={showPanelEdit} onClose={() => showPanelEdit = false} onDeletePanel={() => {
+	const keys = allMetricKeys;
+	if (keys.length > 0) deletePanel(keys[0]);
+}} />
 
 {#if toastMessage}
 	<div class="toast" role="alert">{toastMessage}</div>
+{/if}
+
+{#if fullScreenPanel}
+	<FullScreenPanel panel={fullScreenPanel} series={fullScreenSeries} {runs} onClose={() => { fullScreenPanel = null; }} />
+{/if}
+
+{#if showSendToReport}
+	<div class="panel-edit-overlay" onclick={() => showSendToReport = false}>
+		<div class="panel-edit-modal" role="dialog" aria-label="Send to report" onclick={(e) => e.stopPropagation()}>
+			<h3>Add panel to report</h3>
+			<select role="combobox" aria-label="report">
+				<option>Select a report...</option>
+			</select>
+			<div class="dialog-actions">
+				<button onclick={() => showSendToReport = false}>Cancel</button>
+				<button class="primary" onclick={() => showSendToReport = false}>Add</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <style>
@@ -1071,7 +1155,7 @@
 	.section-btn:hover { color: #8899aa; border-color: #4fc3f7; }
 
 	.chart-wrapper { position: relative; }
-	.chart-actions { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 1; opacity: 0; transition: opacity 0.2s; }
+	.chart-actions { position: absolute; top: 0.5rem; right: 0.5rem; z-index: 1; opacity: 1; }
 	.chart-wrapper:hover .chart-actions { opacity: 1; }
 	.chart-btn { padding: 0.25rem 0.5rem; background: #16213e; border: 1px solid #1e2d4a; border-radius: 3px; color: #8899aa; cursor: pointer; font-size: 0.75rem; }
 	.chart-btn:hover { color: #4fc3f7; }
@@ -1208,7 +1292,7 @@
 		white-space: nowrap;
 	}
 
-	.panel-search {
+	.search-panels-input {
 		flex: 1;
 		max-width: 300px;
 		padding: 0.4rem 0.6rem;
@@ -1255,4 +1339,5 @@
 		padding: 2rem;
 		text-align: center;
 	}
+
 </style>

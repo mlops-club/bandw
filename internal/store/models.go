@@ -155,6 +155,26 @@ type RunLog struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// RunFile tracks files uploaded for a specific run.
+type RunFile struct {
+	ID          string    `gorm:"type:varchar(36);primaryKey" json:"id"`
+	RunID       string    `gorm:"type:varchar(36);not null;index" json:"run_id"`
+	Run         Run       `gorm:"foreignKey:RunID" json:"-"`
+	Name        string    `gorm:"type:varchar(2048);not null" json:"name"`
+	StoragePath string    `gorm:"type:varchar(2048);not null" json:"storage_path"`
+	UploadURL   string    `gorm:"type:varchar(4096)" json:"upload_url"`
+	DirectURL   string    `gorm:"type:varchar(4096)" json:"direct_url"`
+	Size        *int64    `json:"size"`
+	MD5         string    `gorm:"type:varchar(32)" json:"md5"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (f *RunFile) BeforeCreate(tx *gorm.DB) error {
+	generateUUID(&f.ID)
+	return nil
+}
+
 // ─── Artifact Models ─────────────────────────────────────────────
 
 // ArtifactType classifies artifacts (e.g. "dataset", "model").
@@ -328,4 +348,25 @@ type ArtifactCollectionTag struct {
 	Collection   ArtifactCollection `gorm:"foreignKey:CollectionID" json:"-"`
 	TagID        string             `gorm:"type:varchar(36);not null;primaryKey" json:"tag_id"`
 	Tag          Tag                `gorm:"foreignKey:TagID" json:"-"`
+}
+
+// View represents a saved view — either a report or a workspace configuration.
+type View struct {
+	ID          string         `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Name        string         `gorm:"type:varchar(255)" json:"name"`
+	DisplayName string         `gorm:"type:varchar(255)" json:"display_name"`
+	Type        string         `gorm:"type:varchar(64)" json:"type"` // runs, workspace
+	Description string         `gorm:"type:text" json:"description"`
+	Spec        datatypes.JSON `gorm:"type:json" json:"spec"`
+	ProjectID   string         `gorm:"type:varchar(36);not null;index" json:"project_id"`
+	Project     Project        `gorm:"foreignKey:ProjectID" json:"-"`
+	UserID      string         `gorm:"type:varchar(36)" json:"user_id"`
+	User        User           `gorm:"foreignKey:UserID" json:"-"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
+func (v *View) BeforeCreate(tx *gorm.DB) error {
+	generateUUID(&v.ID)
+	return nil
 }

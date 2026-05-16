@@ -62,10 +62,7 @@ def main() -> None:
             "    def forward(self, x):\n"
             "        return self.fc(x)\n"
         ),
-        "utils.py": (
-            "def compute_accuracy(preds, labels):\n"
-            "    return (preds == labels).mean()\n"
-        ),
+        "utils.py": ("def compute_accuracy(preds, labels):\n    return (preds == labels).mean()\n"),
     }
     for fname, content in sample_files.items():
         (Path(code_dir) / fname).write_text(content)
@@ -78,7 +75,11 @@ def main() -> None:
         name="code-log-explicit",
         config={"lr": 0.01, "epochs": 10},
     )
-    if not is_bandw:
+    if is_bandw:
+        run.config.update(
+            {"_bandw_files": {"files": [{"name": name, "content": content} for name, content in sample_files.items()]}}
+        )
+    else:
         run.log_code(code_dir)
     for step in range(10):
         run.log({"train/loss": 2.0 / (step + 1)})
@@ -87,12 +88,17 @@ def main() -> None:
 
     # ---- Run 1: code_dir setting ----
     log_debug("Run 1: code-dir-setting")
+    run1_config = {"lr": 0.005, "epochs": 20}
+    if is_bandw:
+        run1_config["_bandw_files"] = {
+            "files": [{"name": name, "content": content} for name, content in sample_files.items()]
+        }
     run = wandb.init(
         project=project,
         entity=entity,
         name="code-dir-setting",
         settings=wandb.Settings(code_dir=code_dir) if not is_bandw else wandb.Settings(),
-        config={"lr": 0.005, "epochs": 20},
+        config=run1_config,
     )
     for step in range(10):
         run.log({"train/loss": 1.8 / (step + 1)})
@@ -119,7 +125,20 @@ def main() -> None:
         name="code-modified",
         config={"lr": 0.001, "epochs": 30},
     )
-    if not is_bandw:
+    if is_bandw:
+        modified_train = (Path(code_dir) / "train.py").read_text()
+        run.config.update(
+            {
+                "_bandw_files": {
+                    "files": [
+                        {"name": "train.py", "content": modified_train},
+                        {"name": "model.py", "content": sample_files["model.py"]},
+                        {"name": "utils.py", "content": sample_files["utils.py"]},
+                    ]
+                }
+            }
+        )
+    else:
         run.log_code(code_dir)
     for step in range(10):
         run.log({"train/loss": 1.5 / (step + 1)})

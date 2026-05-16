@@ -35,6 +35,7 @@ func NewRouterWithStorage(db *gorm.DB, store *storage.LocalStorage, staticFS ...
 	if store != nil {
 		r.Put("/upload/*", store.UploadHandler())
 		r.Get("/storage/*", store.DownloadHandler())
+		r.Head("/storage/*", store.DownloadHandler())
 	}
 
 	// Authenticated routes.

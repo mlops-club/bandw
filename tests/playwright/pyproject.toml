@@ -9,6 +9,7 @@ dependencies = [
     "scikit-learn",
     "plotly>=6.7.0",
     "pandas>=3.0.2",
+    "matplotlib",
 ]
 
 [tool.uv]

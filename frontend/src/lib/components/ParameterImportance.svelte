@@ -95,11 +95,11 @@
 	<h3>Parameter Importance</h3>
 	<p class="panel-desc">How hyperparameters affect metrics</p>
 
-	<div class="metric-selector">
-		<label aria-label="metric">
+	<div class="metric-selector" role="combobox" aria-label="metric" aria-expanded="true">
+		<label>
 			Output metric
 		</label>
-		<div class="metric-options" role="listbox" aria-label="metric">
+		<div class="metric-options" role="listbox">
 			{#each metricKeys as m}
 				<button role="option" aria-selected={selectedMetric === m} class:selected={selectedMetric === m} onclick={() => selectedMetric = m}>{m}</button>
 			{/each}

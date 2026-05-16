@@ -65,13 +65,13 @@
 	<aside class="artifact-sidebar">
 		<h2>Artifact Types</h2>
 		{#each artifactTypes as artType}
-			<button class="tree-item" role="treeitem" aria-label={artType.name} class:active={selectedType === artType.name} onclick={() => { selectedType = artType.name; selectedCollection = ''; selectedArtifact = null; }}>
+			<button class="tree-item" role="treeitem" aria-label={artType.name} aria-selected={selectedType === artType.name} class:active={selectedType === artType.name} onclick={() => { selectedType = artType.name; selectedCollection = ''; selectedArtifact = null; }}>
 				{artType.name}
 			</button>
 			{#if selectedType === artType.name}
 				<div class="tree-children" role="group">
 					{#each artType.artifactCollections?.edges?.map((e: any) => e.node) ?? [] as coll}
-						<a href="/{entity}/{project}/artifacts/{artType.name}/{coll.name}" class="tree-child" role="link" aria-label={coll.name} onclick={(e) => { e.preventDefault(); selectedCollection = coll.name; selectedArtifact = coll; }}>
+						<a href="/{entity}/{project}/artifacts/{artType.name}/{coll.name}" class="tree-child" role="link" aria-label={coll.name}>
 							{coll.name}
 						</a>
 					{/each}
@@ -86,11 +86,11 @@
 			<p class="artifact-type">Type: {selectedType}</p>
 
 			<nav class="artifact-tabs">
-				<button role="link" aria-label="Files" class:active={activeTab === 'files'} onclick={() => activeTab = 'files'}>Files</button>
-				<button role="link" aria-label="Metadata" class:active={activeTab === 'metadata'} onclick={() => activeTab = 'metadata'}>Metadata</button>
-				<button role="link" aria-label="Usage" class:active={activeTab === 'usage'} onclick={() => activeTab = 'usage'}>Usage</button>
-				<button role="link" aria-label="Versions" class:active={activeTab === 'versions'} onclick={() => activeTab = 'versions'}>Versions</button>
-				<button role="link" aria-label="Lineage" class:active={activeTab === 'lineage'} onclick={() => activeTab = 'lineage'}>Lineage</button>
+				<a href="#files" role="link" aria-label="Files" class:active={activeTab === 'files'} onclick={(e) => { e.preventDefault(); activeTab = 'files'; }}>Files</a>
+				<a href="#metadata" role="link" aria-label="Metadata" class:active={activeTab === 'metadata'} onclick={(e) => { e.preventDefault(); activeTab = 'metadata'; }}>Metadata</a>
+				<a href="#usage" role="link" aria-label="Usage" class:active={activeTab === 'usage'} onclick={(e) => { e.preventDefault(); activeTab = 'usage'; }}>Usage</a>
+				<a href="#versions" role="link" aria-label="Versions" class:active={activeTab === 'versions'} onclick={(e) => { e.preventDefault(); activeTab = 'versions'; }}>Versions</a>
+				<a href="#lineage" role="link" aria-label="Lineage" class:active={activeTab === 'lineage'} onclick={(e) => { e.preventDefault(); activeTab = 'lineage'; }}>Lineage</a>
 			</nav>
 
 			<div class="tab-content">

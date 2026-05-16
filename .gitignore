@@ -93,6 +93,9 @@ frontend/dist/
 frontend/.svelte-kit/
 frontend/.vite/
 
+# ── Playwright test videos ──
+tests/playwright/test-videos/
+
 # ── IDE / OS ──
 .idea/
 .vscode/

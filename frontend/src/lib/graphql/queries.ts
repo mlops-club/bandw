@@ -84,6 +84,17 @@ export const RUN_DETAIL_QUERY = gql`
         user {
           username
         }
+        files(first: 50) {
+          edges {
+            node {
+              id
+              name
+              url
+              directUrl
+              sizeBytes
+            }
+          }
+        }
       }
     }
   }
@@ -124,6 +135,66 @@ export const SAMPLED_HISTORY_QUERY = gql`
     project(name: $projectName, entityName: $entityName) {
       run(name: $runName) {
         sampledHistory(specs: $specs)
+      }
+    }
+  }
+`;
+
+export const ALL_VIEWS_QUERY = gql`
+  query AllViews(
+    $projectName: String!
+    $entityName: String!
+    $viewType: String
+  ) {
+    project(name: $projectName, entityName: $entityName) {
+      allViews(viewType: $viewType) {
+        edges {
+          node {
+            id
+            name
+            displayName
+            type
+            description
+            spec
+            createdAt
+            updatedAt
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const UPSERT_VIEW_MUTATION = gql`
+  mutation UpsertView($input: UpsertViewInput!) {
+    upsertView(input: $input) {
+      view {
+        id
+        name
+        displayName
+        type
+        description
+        spec
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const DELETE_VIEW_MUTATION = gql`
+  mutation DeleteView($input: DeleteViewInput!) {
+    deleteView(input: $input) {
+      success
+    }
+  }
+`;
+
+export const DELETE_ARTIFACT_MUTATION = gql`
+  mutation DeleteArtifact($input: DeleteArtifactInput!) {
+    deleteArtifact(input: $input) {
+      artifact {
+        id
       }
     }
   }

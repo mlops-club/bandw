@@ -26,7 +26,9 @@
 	let showSortPanel = $state(false);
 	let showFilterPanel = $state(false);
 	let showGroupDropdown = $state(false);
+	let showColumnsDropdown = $state(false);
 	let groupByKey = $state<string | null>(null);
+	let hiddenColumns = $state<Set<string>>(new Set());
 
 	// Row selection
 	let selectedRuns = $state<Set<string>>(new Set());
@@ -204,6 +206,24 @@
 		<input type="text" placeholder="Search runs..." class="search" bind:value={searchQuery} />
 		<button class="toolbar-btn" onclick={() => { showFilterPanel = !showFilterPanel }}>Filter</button>
 		<button class="toolbar-btn" onclick={() => { showSortPanel = !showSortPanel }}>Sort</button>
+		<div class="dropdown-wrap">
+			<button class="toolbar-btn" onclick={() => { showColumnsDropdown = !showColumnsDropdown }}>Columns</button>
+			{#if showColumnsDropdown}
+				<div class="dropdown-menu">
+					<div class="dropdown-label">Toggle columns</div>
+					{#each ['Name', 'State', 'Tags', 'Created', ...allConfigKeys, ...allSummaryKeys] as col}
+						<label class="dropdown-item">
+							<input type="checkbox" checked={!hiddenColumns.has(col)} onchange={() => {
+								const next = new Set(hiddenColumns);
+								if (next.has(col)) next.delete(col); else next.add(col);
+								hiddenColumns = next;
+							}} />
+							{col}
+						</label>
+					{/each}
+				</div>
+			{/if}
+		</div>
 		<div class="dropdown-wrap">
 			<button class="toolbar-btn" onclick={() => { showGroupDropdown = !showGroupDropdown }}>Group</button>
 			{#if showGroupDropdown}

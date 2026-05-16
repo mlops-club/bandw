@@ -41,6 +41,7 @@ type Mutation {
 	completeMultipartUploadArtifact(input: CompleteMultipartUploadArtifactInput!): CompleteMultipartUploadArtifactPayload
 	updateArtifactManifest(input: UpdateArtifactManifestInput!): UpdateArtifactManifestPayload
 	commitArtifact(input: CommitArtifactInput!): CommitArtifactPayload
+	createRunFiles(input: CreateRunFilesInput!): CreateRunFilesPayload
 	useArtifact(input: UseArtifactInput!): UseArtifactPayload
 	updateArtifact(input: UpdateArtifactInput!): UpdateArtifactPayload
 	addAliases(input: AddAliasesInput!): AddAliasesPayload
@@ -56,6 +57,10 @@ type Mutation {
 	createArtifactType(input: CreateArtifactTypeInput!): CreateArtifactTypePayload
 	createArtifactCollectionTagAssignments(input: CreateArtifactCollectionTagAssignmentsInput!): CreateArtifactCollectionTagAssignmentsPayload
 	deleteArtifactCollectionTagAssignments(input: DeleteArtifactCollectionTagAssignmentsInput!): DeleteArtifactCollectionTagAssignmentsPayload
+
+	# ── View mutations ──
+	upsertView(input: UpsertViewInput!): UpsertViewPayload
+	deleteView(input: DeleteViewInput!): DeleteViewPayload
 }
 
 input UpsertBucketInput {
@@ -172,6 +177,9 @@ type Project {
 	artifactTypes(after: String, first: Int, includeAll: Boolean): ArtifactTypeConnection!
 	artifactCollection(name: String!): ArtifactCollection
 	artifactCollections(after: String, first: Int, filters: JSONString, order: String): ArtifactCollectionConnection!
+
+	# ── View queries ──
+	allViews(viewType: String, viewName: String, first: Int, after: String): ViewConnection
 }
 
 type RunConnection {
@@ -218,6 +226,7 @@ type Run {
 	logLines(offset: Int, limit: Int): LogLineConnection!
 	inputArtifacts(after: String, first: Int): ArtifactConnection
 	outputArtifacts(after: String, first: Int): ArtifactConnection
+	files(names: [String], pattern: String, after: String, first: Int): FileConnection
 }
 
 type LogLineConnection {
@@ -233,6 +242,56 @@ type LogLine {
 	lineNum: Int!
 	content: String!
 	stream: String!
+}
+
+# ══════════════════════════════════════════════════════════════════
+# VIEW TYPES
+# ══════════════════════════════════════════════════════════════════
+
+type View {
+	id: ID!
+	name: String
+	displayName: String
+	type: String
+	description: String
+	spec: JSONString
+	project: Project
+	user: User
+	createdAt: DateTime
+	updatedAt: DateTime
+}
+
+type ViewConnection {
+	edges: [ViewEdge!]!
+	pageInfo: PageInfo!
+}
+
+type ViewEdge {
+	node: View
+	cursor: String
+}
+
+input UpsertViewInput {
+	id: String
+	name: String
+	displayName: String
+	description: String
+	entityName: String!
+	projectName: String!
+	type: String
+	spec: JSONString
+}
+
+type UpsertViewPayload {
+	view: View
+}
+
+input DeleteViewInput {
+	id: ID!
+}
+
+type DeleteViewPayload {
+	success: Boolean!
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -474,7 +533,7 @@ input CreateArtifactInput {
 	runName: String
 	artifactTypeName: String!
 	artifactCollectionName: String!
-	artifactCollectionNames: [String!]!
+	artifactCollectionNames: [String!]
 	digest: String!
 	digestAlgorithm: ArtifactDigestAlgorithm!
 	description: String
@@ -539,6 +598,24 @@ input UpdateArtifactManifestInput {
 
 input CommitArtifactInput {
 	artifactID: ID!
+}
+
+input CreateRunFilesInput {
+	entityName: String!
+	projectName: String!
+	runName: String!
+	files: [String!]!
+}
+
+type CreateRunFilesPayload {
+	runID: String
+	uploadHeaders: [String!]!
+	files: [RunFileUploadInfo!]
+}
+
+type RunFileUploadInfo {
+	name: String!
+	uploadUrl: String
 }
 
 input UseArtifactInput {
