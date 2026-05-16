@@ -829,7 +829,7 @@ func (r *Resolver) LinkArtifact(args struct{ Input linkArtifactInput }) (*linkAr
 		}
 	}
 
-	return &linkArtifactPayloadResolver{versionIndex: int32(linkedCount)}, nil
+	return &linkArtifactPayloadResolver{versionIndex: safeInt64ToInt32(linkedCount)}, nil
 }
 
 func (r *Resolver) UnlinkArtifact(args struct{ Input unlinkArtifactInput }) (*unlinkArtifactPayloadResolver, error) {

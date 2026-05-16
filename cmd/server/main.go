@@ -2,22 +2,32 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
-
-	"fmt"
 
 	"github.com/mlops-club/bandw/internal/config"
 	"github.com/mlops-club/bandw/internal/server"
 	"github.com/mlops-club/bandw/internal/storage"
 	"github.com/mlops-club/bandw/internal/store"
 )
+
+// sanitizeForLog strips newline and other control characters that could enable log injection.
+func sanitizeForLog(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r < 0x20 {
+			return -1
+		}
+		return r
+	}, s)
+}
 
 func main() {
 	cfg := config.Load()
@@ -51,11 +61,13 @@ func main() {
 	if frontendDir == "" {
 		frontendDir = "frontend/build"
 	}
-	if info, err := os.Stat(frontendDir); err == nil && info.IsDir() {
+	frontendDir = filepath.Clean(frontendDir)
+	safeFrontendDir := sanitizeForLog(frontendDir)
+	if info, err := os.Stat(frontendDir); err == nil && info.IsDir() { //#nosec G304,G703 -- operator-controlled env var
 		staticFS = os.DirFS(frontendDir)
-		log.Printf("serving frontend from %s", frontendDir)
+		log.Printf("serving frontend from %s", safeFrontendDir) //#nosec G706 -- sanitized via sanitizeForLog
 	} else {
-		log.Printf("no frontend build at %s — skipping static file serving", frontendDir)
+		log.Printf("no frontend build at %s — skipping static file serving", safeFrontendDir) //#nosec G706 -- sanitized via sanitizeForLog
 	}
 
 	// Set up local file storage for artifacts.

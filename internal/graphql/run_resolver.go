@@ -210,7 +210,7 @@ func (r *RunResolver) LogLines(args struct {
 		}
 	}
 
-	return &LogLineConnectionResolver{edges: edges, totalCount: int32(total)}, nil
+	return &LogLineConnectionResolver{edges: edges, totalCount: safeInt64ToInt32(total)}, nil
 }
 
 func (r *RunResolver) InputArtifacts(args struct {
