@@ -2,7 +2,7 @@ import { type Page, type Locator } from "@playwright/test";
 
 /**
  * Page object for the runs table (project workspace view).
- * Uses ARIA-first selectors that work against both wandb.ai and bandw.
+ * Uses ARIA-first selectors.
  */
 export class RunsTablePage {
   readonly page: Page;

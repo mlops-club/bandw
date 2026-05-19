@@ -24,7 +24,7 @@ implementation plan.
 7. How are artifact manifest entries structured? What fields does `ArtifactManifestEntry` need (path, digest, size, birthArtifactID)?
 
 ### Frontend
-8. What does the wandb.ai artifact browser look like? (screenshot needed) What ARIA roles/structure does it use?
+8. What does the the reference artifact browser look like? (screenshot needed) What ARIA roles/structure does it use?
 9. How are artifact versions displayed — as a list, grid, or timeline?
 10. What does the lineage DAG look like? How are run→artifact edges rendered?
 
@@ -39,7 +39,7 @@ implementation plan.
 14. What GraphQL query does the frontend use to list files for a run? `run.files(first, after)` connection?
 
 ### Frontend
-15. What does the wandb.ai run detail "Files" tab look like? Directory tree or flat list?
+15. What does the the reference run detail "Files" tab look like? Directory tree or flat list?
 16. What does the "Code" tab look like — side-by-side diff or single file viewer?
 
 ---
@@ -53,7 +53,7 @@ implementation plan.
 20. Does table rendering need any backend query beyond fetching the JSON file from storage?
 
 ### Frontend
-21. What does the wandb.ai table viewer look like? Sortable columns, filters, pagination?
+21. What does the the reference table viewer look like? Sortable columns, filters, pagination?
 22. How does the step slider work for tables logged at multiple steps?
 
 ---
@@ -67,7 +67,7 @@ implementation plan.
 26. What does "freeze run set" do on the backend? Does it snapshot run IDs into the report spec?
 
 ### Frontend
-27. What does the wandb.ai report editor look like? Rich text with blocks, or markdown?
+27. What does the the reference report editor look like? Rich text with blocks, or markdown?
 28. How does the slash command menu work — what block types are available?
 29. How does the "Share" modal work — does it change report visibility or generate a link?
 
@@ -82,7 +82,7 @@ implementation plan.
 33. What about audio/video/3D — are they all stored as artifact files with different MIME types?
 
 ### Frontend
-34. What does the wandb.ai media panel look like — grid of thumbnails with step slider?
+34. What does the the reference media panel look like — grid of thumbnails with step slider?
 35. How does the "compare mode" work for multiple runs' images?
 
 ---
@@ -95,7 +95,7 @@ implementation plan.
 38. Does the backend need a `CustomChart` model or are custom charts just workspace view state?
 
 ### Frontend
-39. What Vega-Lite spec format does wandb.ai use for custom charts?
+39. What Vega-Lite spec format does the reference UI use for custom charts?
 40. How are custom chart presets rendered differently from regular line/bar plots?
 
 ---
@@ -103,7 +103,7 @@ implementation plan.
 ## 7. Overview Panel Management (C1b remaining — ~8 tests)
 
 ### Frontend-only questions
-41. How does wandb.ai implement drag-and-drop panel reorder? What library (dnd-kit, @dnd-kit/sortable)?
+41. How does the reference UI implement drag-and-drop panel reorder? What library (dnd-kit, @dnd-kit/sortable)?
 42. How does the pagination control work for panels within a section?
 43. How does full-screen panel prev/next navigation work — URL-based or overlay-based?
 44. How does the "back" button from full-screen panel view work?
@@ -128,7 +128,7 @@ implementation plan.
 
 For each question, answer using one or more of:
 - **Code inspection**: Read wandb SDK source, our backend Go code, or our schema
-- **Network capture**: Run a test against wandb.ai with HAR recording enabled
-- **Chrome DevTools**: Use the Chrome MCP to inspect wandb.ai UI
-- **Documentation**: Check docs.wandb.ai for API specs
+- **Network capture**: Run a test against the reference with HAR recording enabled
+- **Chrome DevTools**: Use the Chrome MCP to inspect the reference UI
+- **Documentation**: Check docs.the reference for API specs
 - **Experiment**: Run the SDK against our backend with debug logging

@@ -19,7 +19,7 @@ npx playwright test --project=bandw tests/app/cascade-settings/workspace-level-s
 - [ ] Add "Line plots" section in panel
 - [ ] Add smoothing slider control
 - [ ] Verify workspace-level-settings passes bandw
-- [ ] Verify workspace-level-settings still passes wandb.ai
+- [ ] Verify workspace-level-settings still passes the reference
 
 ## Slice 2: Section Settings Panel
 - [x] Add section settings panel with "Display preferences"

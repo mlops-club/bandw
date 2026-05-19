@@ -1,7 +1,7 @@
 # Backend Unlocks Specification
 
 **Goal:** Implement the backend features required so that all Playwright tests pass against
-both the bandw backend *and* the official wandb.ai UI, all Go integration tests pass, all
+both the bandw backend *and* the official the reference UI, all Go integration tests pass, all
 Python SDK smoke tests pass, and the SDK conformance baseline (128 tests) holds with no
 regressions.
 
@@ -508,7 +508,7 @@ All 175 Playwright spec files must pass against **both** targets:
 # Against bandw backend
 npx playwright test --project=bandw
 
-# Against official wandb.ai
+# Against the reference
 npx playwright test --project=wandb
 ```
 

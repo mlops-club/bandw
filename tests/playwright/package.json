@@ -4,11 +4,9 @@
   "scripts": {
     "test": "playwright test",
     "test:bandw": "playwright test --project=bandw",
-    "test:wandb": "playwright test --project=wandb",
     "bddgen": "bddgen",
     "test:bdd:bandw": "npm run bddgen && playwright test --project=bandw-bdd",
-    "test:bdd:wandb": "npm run bddgen && playwright test --project=wandb-bdd",
-    "test:bdd": "npm run bddgen && playwright test --project=bandw-bdd --project=wandb-bdd",
+    "test:bdd": "npm run bddgen && playwright test --project=bandw-bdd",
     "clean:manifests": "find tests -name '.manifest.json' -o -name '.manifest.lock' | xargs rm -f",
     "pretest": "npm run clean:manifests"
   },

@@ -12,7 +12,7 @@ Implementation slices F0-F5 have been attempted. Current pass rates by area:
 
 All backend mutations are implemented. The `_bandw_tables` and `_bandw_charts` config-based
 data pipeline is in place for bandw targets. Tests use flexible selectors (`.or()` chains,
-regex patterns) so we do not need to match wandb.ai's exact DOM.
+regex patterns) so we do not need to match the reference UI's exact DOM.
 
 **Goal:** Close the remaining ~70 failing tests across these 6 areas.
 

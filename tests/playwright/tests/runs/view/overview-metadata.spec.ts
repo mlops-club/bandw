@@ -13,9 +13,9 @@ test('overview-metadata: displays run metadata fields', async ({ authedPage, tar
   // Verify the run ID is visible somewhere on the page (breadcrumbs, metadata, etc.)
   await expect(page.getByText(run.id).first()).toBeVisible({ timeout: 10_000 });
 
-  // Verify "State" label is present (both wandb.ai and bandw show this)
+  // Verify "State" label is present
   await expect(page.getByText('State').first()).toBeVisible({ timeout: 10_000 });
 
-  // Verify host info is present (wandb.ai: "Hostname", bandw: "Host")
+  // Verify host info is present
   await expect(page.getByText(/Host/).first()).toBeVisible({ timeout: 10_000 });
 });

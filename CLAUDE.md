@@ -72,23 +72,12 @@ cd tests/playwright
 # Run BDD tests against local bandw (requires backend + frontend running)
 npm run test:bdd:bandw
 
-# Run BDD tests against real wandb.ai (requires .auth/wandb-storage-state.json)
-npm run test:bdd:wandb
-
-# Run against both targets
-npm run test:bdd
-
 # Regenerate BDD specs from .feature files (needed after editing features)
 npm run bddgen
 
 # Clean stale SDK manifests (done automatically via pretest)
 npm run clean:manifests
 ```
-
-To set up wandb.ai auth for the first time:
-1. Close Brave
-2. Run: `npx playwright test --project=wandb-auth-setup`
-3. Or manually: launch Brave via Playwright, log in, save storage state to `.auth/wandb-storage-state.json`
 
 ### Merge Gate (CRITICAL)
 

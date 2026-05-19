@@ -195,7 +195,7 @@ When(
 Then(
   'the sort controls should be visible',
   async ({ authedPage }) => {
-    // wandb.ai shows "Sort runs by..." while bandw shows "Sort by:"
+    // Sort label may vary ("Sort runs by..." or "Sort by:")
     await expect(
       authedPage.getByText(/Sort\s+(runs\s+)?by/i).first()
     ).toBeVisible({ timeout: 10_000 });

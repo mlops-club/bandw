@@ -8,7 +8,7 @@
 import { test as bddTest } from 'playwright-bdd';
 import { createBdd } from 'playwright-bdd';
 import type { Page } from '@playwright/test';
-import type { TargetConfig, Target } from '../fixtures/base';
+import type { TargetConfig } from '../fixtures/base';
 import type { SdkManifest } from '../fixtures/sdk-setup';
 import { execFileSync } from 'child_process';
 import path from 'path';
@@ -18,18 +18,9 @@ import fs from 'fs';
 // Layer 1: targetConfig (worker-scoped) — same logic as fixtures/base.ts
 // ---------------------------------------------------------------------------
 
-function resolveConfig(target: Target): TargetConfig {
-  if (target.startsWith('wandb')) {
-    return {
-      target,
-      baseURL: 'https://REMOVED',
-      apiBaseURL: 'https://REMOVED',
-      apiKey: process.env.WANDB_API_KEY ?? '',
-      entity: process.env.WANDB_ENTITY ?? '',
-    };
-  }
+function resolveConfig(): TargetConfig {
   return {
-    target,
+    target: 'bandw',
     baseURL: process.env.BANDW_BASE_URL ?? 'http://localhost:5173',
     apiBaseURL: process.env.BANDW_API_URL ?? 'http://localhost:8080',
     apiKey: process.env.BANDW_API_KEY ?? '1dbac5a5d91172ad159b7978bec36bb8c3b0a5f5',
@@ -102,40 +93,17 @@ export const test = bddTest.extend<
   { targetConfig: TargetConfig }
 >({
   targetConfig: [
-    async ({}, use, workerInfo) => {
-      const target = (workerInfo.project.name as Target) || 'bandw';
-      const config = resolveConfig(target);
+    async ({}, use) => {
+      const config = resolveConfig();
       await use(config);
     },
     { scope: 'worker' },
   ],
 
   authedPage: async ({ page, targetConfig }, use) => {
-    if (targetConfig.target === 'bandw') {
-      await page.addInitScript((key) => {
-        localStorage.setItem('wandb-api-key', key);
-      }, targetConfig.apiKey);
-    }
-
-    if (targetConfig.target === 'wandb') {
-      await page.context().addCookies([
-        {
-          name: 'OptanonAlertBoxClosed',
-          value: new Date().toISOString(),
-          domain: '.wandb.ai',
-          path: '/',
-        },
-        {
-          name: 'OptanonConsent',
-          value:
-            'isGpcEnabled=0&datestamp=' +
-            encodeURIComponent(new Date().toISOString()) +
-            '&version=202409.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0003%3A0%2CC0004%3A0',
-          domain: '.wandb.ai',
-          path: '/',
-        },
-      ]);
-    }
+    await page.addInitScript((key) => {
+      localStorage.setItem('wandb-api-key', key);
+    }, targetConfig.apiKey);
 
     await use(page);
   },

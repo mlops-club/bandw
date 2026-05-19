@@ -68,8 +68,7 @@ When(
   async ({ authedPage, targetConfig, sdkData }) => {
     const url = `${targetConfig.baseURL}/${sdkData.entity}/${sdkData.project}`;
     await authedPage.goto(url);
-    // Wait for page to settle — wandb.ai may land on Workspace tab (no table),
-    // bandw lands on Runs tab (with table). Just wait for any heading or link.
+    // Wait for page to settle — just wait for any heading or link.
     await authedPage.getByRole('heading').or(authedPage.getByRole('link')).first().waitFor({ timeout: 30_000 });
     await authedPage.waitForTimeout(2000);
   }
