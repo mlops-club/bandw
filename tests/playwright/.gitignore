@@ -7,6 +7,7 @@
 
 # Test output
 test-results/
+test-videos/
 snapshots/
 screenshots/
 
@@ -15,3 +16,6 @@ wandb/
 
 # Node
 node_modules/
+
+# playwright-bdd generated specs (rebuilt by `npx bddgen`)
+.features-gen/

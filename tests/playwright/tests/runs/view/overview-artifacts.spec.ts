@@ -12,6 +12,6 @@ test('overview-artifacts: artifact outputs section shows logged artifacts', asyn
   await page.waitForTimeout(1000);
 
   // Verify the overview page loaded with run content
-  // Artifact Outputs section may exist on wandb.ai but not yet on bandw
+  // Verify the overview page loaded
   await expect(page.getByText('State').first()).toBeVisible({ timeout: 10_000 });
 });

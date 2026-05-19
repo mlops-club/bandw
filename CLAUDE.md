@@ -57,7 +57,27 @@ uv run pytest
 
 - Go integration tests use in-memory SQLite via GORM (no Docker needed)
 - SDK conformance tests run upstream W&B SDK system tests against our backend
-- UI tests use Playwright (future)
+- UI tests use playwright-bdd (Gherkin `.feature` files + Playwright)
+
+### UI Tests (playwright-bdd)
+
+Tests live in `tests/playwright/`. Each feature area has:
+- `setup.py` — Python SDK script that creates test data (runs, metrics, artifacts)
+- `*.feature` — Gherkin scenarios describing UI behavior
+- `steps/*.steps.ts` — Step definitions wiring Gherkin to Playwright actions
+
+```bash
+cd tests/playwright
+
+# Run BDD tests against local bandw (requires backend + frontend running)
+npm run test:bdd:bandw
+
+# Regenerate BDD specs from .feature files (needed after editing features)
+npm run bddgen
+
+# Clean stale SDK manifests (done automatically via pretest)
+npm run clean:manifests
+```
 
 ### Merge Gate (CRITICAL)
 

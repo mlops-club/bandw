@@ -7,9 +7,7 @@ test('overview-editable: notes field is visible', async ({ authedPage, targetCon
   await page.goto(`${targetConfig.baseURL}/${sdkData.entity}/${sdkData.project}/runs/${run.id}/overview`);
   await page.getByRole('tab', { name: 'Overview' }).waitFor({ timeout: 30_000 });
 
-  // Both UIs have a notes/description area on the overview page
-  // wandb.ai shows "Notes" label, bandw shows "NOTES" (h2 with text-transform)
-  // Just verify some notes-related text exists
+  // Verify notes/description area on the overview page
   await expect(page.getByText(/notes/i).first()).toBeVisible({ timeout: 10_000 });
 });
 

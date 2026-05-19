@@ -220,9 +220,9 @@ All verification slices can run in parallel with each other.
 |--------|------|------------------|
 | **Go** | Go integration tests pass | `go test ./internal/... -run "TestName" -v -count=1` |
 | **SDK** | SDK setup.py succeeds against bandw | `WANDB_BASE_URL=http://localhost:8080 WANDB_API_KEY=<key> WANDB_ENTITY=admin uv run python tests/<folder>/setup.py` |
-| **PW-W** | Playwright passes on wandb.ai | `npx playwright test tests/<spec> --project=wandb` |
+| **PW-W** | Playwright passes on the reference | `npx playwright test tests/<spec> --project=wandb` |
 | **PW-B** | Playwright passes on bandw | `npx playwright test tests/<spec> --project=bandw` |
-| **Vid-W** | Video recorded on wandb.ai UI | `ls tests/playwright/test-videos/wandb/<spec-folder>/*.webm` |
+| **Vid-W** | Video recorded on the reference UI | `ls tests/playwright/test-videos/wandb/<spec-folder>/*.webm` |
 | **Vid-B** | Video recorded on bandw UI | `ls tests/playwright/test-videos/bandw/<spec-folder>/*.webm` |
 
 **SDK conformance gate (run after every slice):**
@@ -534,7 +534,7 @@ cd tests/playwright
 npx playwright test --project=bandw
 npx playwright test --project=wandb
 
-# 4. Videos exist for all specs — wandb.ai UI
+# 4. Videos exist for all specs — the reference UI
 find test-videos/wandb -name "*.webm" | wc -l   # should be >= 175
 
 # 5. Videos exist for all specs — bandw UI

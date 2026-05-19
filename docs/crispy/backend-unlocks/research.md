@@ -1,7 +1,7 @@
 # Backend Unlocks — Research Answers
 
 Research conducted 2026-04-20 via SDK source inspection (v0.26 installed in tests/.venv),
-backend Go code reading, GraphQL schema analysis, and Chrome DevTools inspection of wandb.ai.
+backend Go code reading, GraphQL schema analysis, and Chrome DevTools inspection of the reference.
 
 ---
 
@@ -163,9 +163,9 @@ input ArtifactManifestEntryInput {
 
 ### Frontend
 
-**Q8. What does the wandb.ai artifact browser look like?**
+**Q8. What does the the reference artifact browser look like?**
 
-From Chrome inspection of `wandb.ai/subquadratic/bandw-probe/artifacts`:
+From Chrome inspection of the reference `/subquadratic/bandw-probe/artifacts`:
 
 **Layout:** Three-column design:
 - **Left sidebar:** Artifact types as collapsible groups (e.g., "dataset", "model", "wandb-events"), with collection names as links under each type. Each collection has a "More actions" button.
@@ -285,7 +285,7 @@ Our backend's `RunResolver` does **not** implement this field yet.
 
 ### Frontend
 
-**Q15. What does the wandb.ai run detail "Files" tab look like?**
+**Q15. What does the the reference run detail "Files" tab look like?**
 
 From Chrome inspection of the Files tab:
 
@@ -305,7 +305,7 @@ From Chrome inspection:
 
 **Single file viewer** (not side-by-side diff):
 - **Breadcrumbs** path showing the file location (5 levels deep for `code/tests/smoke/probe_pytorch.py`)
-- **Toolbar:** "Copy file contents" button + "Download" link (direct link to `api.wandb.ai/files/...`)
+- **Toolbar:** "Copy file contents" button + "Download" link (direct link to the API/files/...`)
 - **Code viewer:** Syntax-highlighted file contents in a scrollable container
 - Shows the main entry point script automatically
 
@@ -393,7 +393,7 @@ No special backend query needed — just the ability to serve the JSON file.
 
 ### Frontend
 
-**Q21. What does the wandb.ai table viewer look like?**
+**Q21. What does the the reference table viewer look like?**
 
 From the Runs tab (which itself is a table viewer at `/table`):
 
@@ -522,7 +522,7 @@ This is entirely a **spec mutation** — no special backend support needed beyon
 
 ### Frontend
 
-**Q27. What does the wandb.ai report editor look like?**
+**Q27. What does the the reference report editor look like?**
 
 From Chrome inspection of the reports creation flow:
 
@@ -701,7 +701,7 @@ The GraphQL schema does have `createCustomChart` mutation and a minimal `Chart {
 
 ### Frontend
 
-**Q39. What Vega-Lite spec format does wandb.ai use?**
+**Q39. What Vega-Lite spec format does the reference UI use?**
 
 Wandb uses **named Vega-Lite presets** referenced by `vega_spec_name`:
 - `"wandb/line/v0"` — line chart
@@ -710,7 +710,7 @@ Wandb uses **named Vega-Lite presets** referenced by `vega_spec_name`:
 - `"wandb/area-under-curve/v0"` — ROC/PR curves
 - `"wandb/confusion_matrix/v0"` — confusion matrix
 
-These are standard Vega-Lite specs stored on the wandb.ai server. The `fieldSettings` from the run config maps Vega channels to table columns. Custom user-defined Vega specs are stored via `createCustomChart`.
+These are standard Vega-Lite specs stored on the the server. The `fieldSettings` from the run config maps Vega channels to table columns. Custom user-defined Vega specs are stored via `createCustomChart`.
 
 ---
 
@@ -730,9 +730,9 @@ The visual distinction: custom charts typically show a "Custom Chart" label and 
 
 ### Frontend-only questions
 
-**Q41. How does wandb.ai implement drag-and-drop panel reorder?**
+**Q41. How does the reference UI implement drag-and-drop panel reorder?**
 
-The workspace UI shows panels in sections with reorder capability. Based on React Flow usage for lineage and the overall React ecosystem, wandb.ai likely uses **@dnd-kit/sortable** or a similar React DnD library. The workspace has:
+The workspace UI shows panels in sections with reorder capability. Based on React Flow usage for lineage and the overall React ecosystem, the reference likely uses **@dnd-kit/sortable** or a similar React DnD library. The workspace has:
 - "Undo last action" / "Redo last action" buttons
 - "Workspace actions" overflow menu
 - Panel sections that can be collapsed and rearranged

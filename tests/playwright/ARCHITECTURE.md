@@ -2,43 +2,21 @@
 
 ## Purpose
 
-A Playwright test suite that validates W&B UI workflows against both:
-- **wandb.ai** (reference implementation, for reverse-engineering and conformance)
-- **bandw frontend** (our Svelte 5 clone, the real target)
-
-Each test is a **"testing pair"**: Python SDK code to set up data + Playwright code to verify the UI. The Python and TypeScript code for each test are **co-located** in the same folder.
-
-## Spec Authoring Workflow
-
-Every test plan must be authored from **observed W&B behavior**, not from docs alone. The docs define scope, but the real W&B UI defines the interaction model, selectors, request shapes, and undocumented edge behavior.
-
-Before writing or updating any `SPEC.md` or Playwright test:
-
-1. Run the folder's SDK setup script against **real wandb.ai** to create representative data.
-2. Open the real W&B UI in **Chrome MCP** (preferred) or a manual browser session.
-3. Explore the full workflow in the real UI while recording a **HAR** for the session.
-4. Observe the actual UI behavior, visible labels, ARIA roles, keyboard interactions, panel states, and request / response payloads.
-5. Only then write or update the `SPEC.md` and Playwright test using the observed behavior as the source of truth.
-
-If the docs and the observed UI differ:
-- Treat the linked docs as the scope boundary.
-- Treat the observed UI as the implementation reference for selectors, workflows, and network behavior.
-- Call out doc / UI mismatches in the spec instead of guessing.
+A Playwright test suite that validates bandw UI workflows. Each test is a **"testing pair"**: Python SDK code to set up data + Playwright code to verify the UI. The Python and TypeScript code for each test are **co-located** in the same folder.
 
 ## Directory Structure
 
 ```
 tests/playwright/
-  playwright.config.ts            # Dual-project config (bandw + wandb targets)
+  playwright.config.ts            # Project config (bandw target)
   package.json                    # @playwright/test, dependencies
   tsconfig.json
   pyproject.toml                  # Python dependencies for ALL SDK setup scripts
                                   #   (wandb, numpy, etc.) — managed via uv
 
   fixtures/
-    base.ts                       # Target config, target-aware auth, authenticated page
+    base.ts                       # Target config, auth, authenticated page
     sdk-setup.ts                  # Runs Python SDK scripts via uv, parses JSON
-    network-recorder.ts           # Always-on HAR recording for all network traffic
 
   pages/                          # Page objects (aria-first selectors)
     projects-list.page.ts
@@ -369,15 +347,7 @@ tests/playwright/
         incremental-mode.spec.ts
         download.spec.ts
 
-  snapshots/                       # Network recordings (HAR files), mirrors test tree
-    wandb/                        # Recorded against real wandb.ai (committed to git)
-      track/config/requests.har
-      app/panels/line-plot/requests.har
-      ...
-    bandw/                        # Recorded against bandw (gitignored or committed)
-      track/config/requests.har
-      ...
-  screenshots/{bandw,wandb}/      # Visual captures at assertion points
+  screenshots/bandw/               # Visual captures at assertion points
 ```
 
 ## Python Dependency Management
@@ -458,7 +428,7 @@ SDK run creation is slow (5-15s). Tests within a folder share setup data but get
 
 Tests that need the same SDK setup share a folder. A folder's `setup.py` creates all the data needed by every `.spec.ts` in that folder.
 
-## Dual-Target Config
+## Config
 
 ```typescript
 // playwright.config.ts
@@ -470,7 +440,6 @@ const VIEWPORTS = {
 };
 
 projects: [
-  // --- bandw ---
   {
     name: 'bandw',
     use: { baseURL: 'http://localhost:5173', viewport: VIEWPORTS.desktop },
@@ -483,49 +452,22 @@ projects: [
     name: 'bandw-mobile',
     use: { baseURL: 'http://localhost:5173', viewport: VIEWPORTS.mobile },
   },
-  // --- wandb ---
-  {
-    name: 'wandb',
-    use: { baseURL: 'https://REMOVED', viewport: VIEWPORTS.desktop },
-  },
-  {
-    name: 'wandb-tablet',
-    use: { baseURL: 'https://REMOVED', viewport: VIEWPORTS.tablet },
-  },
-  {
-    name: 'wandb-mobile',
-    use: { baseURL: 'https://REMOVED', viewport: VIEWPORTS.mobile },
-  },
 ]
 ```
 
 **Commands:**
 - `npx playwright test --project=bandw` — desktop only (fastest local dev loop)
 - `npx playwright test --project=bandw --project=bandw-tablet --project=bandw-mobile` — all viewports
-- `npx playwright test --project=wandb` — conformance against real W&B (desktop)
-- `npx playwright test` — all targets × all viewports
+- `npx playwright test` — all viewports
 - `npx playwright test --grep @responsive` — only responsive-specific assertions
 
-### Dual-Target Requirements
+### Requirements
 
-Every spec and page object must work against both targets without depending on one frontend's DOM structure or auth implementation.
-
-- **Auth must be abstracted per target**:
-  - `wandb`: authenticate with cookies / `storageState`
-  - `bandw`: authenticate with local storage, session storage, or dev cookies as needed
-- **SDK setup must stay target-aware**:
-  - `WANDB_BASE_URL` must point the SDK at the active backend
-  - the same setup script must be able to seed either target
+- **Selectors must be implementation-agnostic**:
+  - no framework-specific attributes
+  - no dependency on specific HTML layout
 - **URLs must be parameterized**:
   - tests must navigate through route helpers / page objects
-  - do not hard-code W&B-only URL patterns inside specs
-- **Selectors must be implementation-agnostic**:
-  - no React-specific attributes
-  - no Svelte-specific assumptions
-  - no dependency on one target's current HTML layout
-- **Reference-only artifacts from wandb.ai**:
-  - HARs and screenshots from wandb.ai are reference fixtures
-  - assertions must still be written against shared user-visible behavior
 
 ## Responsive / Viewport Testing
 
@@ -674,90 +616,6 @@ For chart and canvas assertions:
 | Panel edit | `<button>` | `aria-label="Edit panel"` |
 | Panel actions | `<button>` | `aria-label="Panel actions"` |
 | Section actions | `<button>` | `aria-label="Section actions"` |
-
-## Network Recording & Diff Analysis
-
-Every exploration session and every test run — against **both** targets — records all network traffic through a `network-recorder.ts` fixture. This is **always-on**, not opt-in. The recordings are not used as assertions; they are a corpus for offline analysis of how our backend / frontend differs from the real W&B.
-
-### What gets recorded
-
-The fixture uses `page.context().recordHar()` to capture **all** network requests (not just GraphQL) into HAR files:
-
-```
-snapshots/
-  wandb/                          # Recorded against real wandb.ai
-    track/config/                 # Mirrors test folder hierarchy
-      requests.har
-    app/panels/line-plot/
-      requests.har
-    ...
-  bandw/                          # Recorded against our backend + frontend
-    track/config/
-      requests.har
-    ...
-```
-
-### What gets captured per request
-
-Each HAR entry includes:
-- **URL + method** (e.g., `POST /graphql`, `POST /files/{entity}/{project}/{runId}/file_stream`)
-- **Request body** — full GraphQL query text, variables, operation name; file stream payloads
-- **Response body** — complete JSON response including all fields
-- **Timing** — request duration, time-to-first-byte
-- **Status code** — 200, 400, 404, etc.
-- **Headers** — auth headers, content types, cache headers
-
-### Fixture implementation (`network-recorder.ts`)
-
-```typescript
-import { test as base } from '@playwright/test';
-import path from 'path';
-
-export const test = base.extend<{}, { networkRecording: void }>({
-  networkRecording: [async ({ browser }, use, workerInfo) => {
-    // Worker-scoped: records HAR for the entire test file
-    // HAR path derived from test file location in the tree
-    // e.g., tests/track/config/ → snapshots/{target}/track/config/requests.har
-    // ...
-    await use();
-  }, { scope: 'worker', auto: true }],
-});
-```
-
-Key details:
-- **Worker-scoped + auto**: attaches to every test file automatically, records once per file (not per test)
-- **HAR path mirrors test path**: `tests/app/panels/line-plot/*.spec.ts` → `snapshots/{target}/app/panels/line-plot/requests.har`
-- **Full capture is required**: do not narrow recording to `/graphql` or `/files/`; capture the complete request set for the workflow
-
-### Offline diff analysis
-
-The HAR files enable several analyses that are **not** part of test assertions but inform development:
-
-1. **GraphQL query comparison** — extract all `operationName` values from wandb HAR, compare against bandw HAR to find:
-   - Queries our frontend makes that our backend doesn't handle yet
-   - Queries W&B makes that we haven't implemented
-   - Response shape differences (missing fields, different nesting)
-
-2. **REST endpoint comparison** — catalog all non-GraphQL endpoints hit (file_stream, file upload, etc.)
-
-3. **Response field coverage** — for each GraphQL operation, diff the response fields present in wandb vs bandw to identify gaps
-
-4. **Timing baseline** — compare request durations to identify performance gaps
-
-5. **Error rate comparison** — identify requests that succeed against wandb but fail against bandw
-
-6. **Exploration-to-test traceability** — keep the exploration HAR for each workflow so a spec can be traced back to the real requests and responses that informed it
-
-A future `scripts/analyze-snapshots.py` script can automate these comparisons:
-```bash
-uv run python scripts/analyze-snapshots.py --wandb snapshots/wandb --bandw snapshots/bandw
-```
-
-### When to refresh recordings
-
-- Run `npx playwright test --project=wandb` periodically (weekly or before major frontend work) to refresh the wandb baseline
-- The wandb HAR files should be **committed to git** — they are reference artifacts, not transient test output
-- The bandw HAR files can be `.gitignore`d (regenerated on every CI run) or committed for historical comparison
 
 ## Screenshot Strategy
 

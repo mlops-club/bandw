@@ -1,7 +1,7 @@
 # B6 Line Plot — bandw Research Questions
 
 ## Context
-B6 has 38 line-plot tests that pass against wandb.ai (38/38). They need to also pass against our bandw frontend. The tests check workspace features: chart panels, "Add panels" button, Settings button, Edit panel, chart section headers, run sidebar, etc.
+B6 has 38 line-plot tests that pass against the reference (38/38). They need to also pass against our bandw frontend. The tests check workspace features: chart panels, "Add panels" button, Settings button, Edit panel, chart section headers, run sidebar, etc.
 
 ## Research Questions
 

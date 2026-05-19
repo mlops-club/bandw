@@ -14,10 +14,6 @@ All detailed test specs live alongside the tests as `SPEC.md` files in `tests/pl
 - `tests/playwright/PLAN.md` — copy of this index
 - `tests/playwright/tests/{path}/SPEC.md` — per-folder test specification
 
-### Network Recording (always-on)
-
-Every test run records full HAR network traffic to `tests/playwright/snapshots/{target}/`. When tests run against wandb.ai, we capture the real GraphQL queries, REST calls, response shapes, and timing — this corpus enables offline diff analysis against our bandw backend without being a test assertion. See [00-architecture.md](00-architecture.md) § "Network Recording & Diff Analysis" for details.
-
 ---
 
 ## Test Plans by W&B Docs Page
@@ -80,7 +76,7 @@ tests/playwright/
   package.json / tsconfig.json
   pyproject.toml                  # Python deps (wandb, numpy, etc.) — managed via uv
 
-  fixtures/  base.ts, sdk-setup.ts, graphql-recorder.ts
+  fixtures/  base.ts, sdk-setup.ts
   pages/     *.page.ts (aria-based page objects)
   shared-sdk/helpers.py
 
@@ -184,7 +180,7 @@ Check off each item as it is completed.
 
 - [x] A1. `tests/playwright/package.json` + `playwright.config.ts` + `tsconfig.json`
 - [x] A2. `tests/playwright/pyproject.toml` for Python deps
-- [x] A3. `tests/playwright/fixtures/base.ts` (incl. `isMobile` / `isTablet` fixtures) + `sdk-setup.ts` + `network-recorder.ts`
+- [x] A3. `tests/playwright/fixtures/base.ts` (incl. `isMobile` / `isTablet` fixtures) + `sdk-setup.ts`
 - [x] A4. `tests/playwright/shared-sdk/helpers.py`
 - [x] A5. First page objects: `pages/runs-table.page.ts`, `pages/run-detail.page.ts`
 - [ ] A6. ARIA attributes added to Svelte components (see 00-architecture.md)

@@ -3,9 +3,9 @@ import { type Page, type Locator } from "@playwright/test";
 /**
  * Page object for the run detail view.
  * Covers tab navigation and common elements across all tabs.
- * Uses ARIA-first selectors that work against both wandb.ai and bandw.
+ * Uses ARIA-first selectors.
  *
- * Observed tab names on wandb.ai: Charts, Overview, Model, Logs, Files, Code, Artifacts
+ * Tab names: Charts, Overview, Model, Logs, Files, Code, Artifacts
  */
 export class RunDetailPage {
   readonly page: Page;
@@ -54,7 +54,7 @@ export class RunDetailPage {
       .waitFor({ state: "visible", timeout: 10_000 });
   }
 
-  /** Get the currently visible tab panel(s). wandb.ai renders multiple tabpanels. */
+  /** Get the currently visible tab panel(s). */
   activePanel(): Locator {
     return this.page.getByRole("tabpanel");
   }
